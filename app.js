@@ -73,6 +73,16 @@ let currentAddingLocationId = null;
 const connectionStatus = document.getElementById('connectionStatus');
 const turnHistory = document.getElementById('turnHistory');
 
+// Новые элементы для открытых комнат
+const showPublicRoomsBtn = document.getElementById('showPublicRooms');
+const createPublicRoomCheckbox = document.getElementById('createPublicRoom');
+const publicRoomsModal = document.getElementById('publicRoomsModal');
+const publicRoomsList = document.getElementById('publicRoomsList');
+const closePublicRoomsBtn = document.getElementById('closePublicRoomsBtn');
+const refreshPublicRoomsBtn = document.getElementById('refreshPublicRoomsBtn');
+const lobbyPublicRoomToggle = document.getElementById('lobbyPublicRoomToggle');
+const roomVisibilityGroup = document.getElementById('roomVisibilityGroup');
+
 // Модальные окна
 const playerSelectModal = document.getElementById('playerSelectModal');
 const playerOptions = document.getElementById('playerOptions');
@@ -131,20 +141,20 @@ const winSound = document.getElementById('winSound');
 const loseSound = document.getElementById('loseSound');
 
 // Инициализация
-document.addEventListener('DOMContentLoaded', async function() {
+document.addEventListener('DOMContentLoaded', async function () {
     // Установка соединения с сервером
     socket = io();
-    
+
     // Обработчики событий
     setupEventListeners();
     setupSocketListeners();
-    
+
     // Если открыта ссылка /room/CODE — подставляем код комнаты
     const pathMatch = window.location.pathname.match(/^\/room\/([A-Za-z0-9]+)\/?$/);
     if (pathMatch && roomCodeInput) {
         roomCodeInput.value = pathMatch[1].toUpperCase();
     }
-    
+
     // Проверка авторизации
     try {
         const res = await fetch('/api/auth/me', { credentials: 'same-origin' });
@@ -193,7 +203,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                             notificationsBadge.style.display = 'none';
                         }
                     }
-                } catch (e) {}
+                } catch (e) { }
             })();
             if (notificationsBell && notificationsDropdown) {
                 notificationsBell.addEventListener('click', async (e) => {
@@ -253,7 +263,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                         }
                         notificationsDropdown.querySelectorAll('a[data-id]').forEach(a => {
                             a.addEventListener('click', () => {
-                                fetch('/api/profile/notifications/' + a.dataset.id + '/read', { method: 'PATCH', credentials: 'same-origin' }).catch(() => {});
+                                fetch('/api/profile/notifications/' + a.dataset.id + '/read', { method: 'PATCH', credentials: 'same-origin' }).catch(() => { });
                             });
                         });
                         notificationsDropdown.querySelectorAll('.accept-friend-btn').forEach(btn => {
@@ -267,7 +277,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                                     if (remaining === 0) {
                                         notificationsDropdown.innerHTML = '<div style="padding:12px;color:#888;text-align:center;">Нет уведомлений</div>';
                                     }
-                                } catch (e) {}
+                                } catch (e) { }
                             });
                         });
                         notificationsDropdown.querySelectorAll('.reject-friend-btn').forEach(btn => {
@@ -281,7 +291,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                                     if (remaining === 0) {
                                         notificationsDropdown.innerHTML = '<div style="padding:12px;color:#888;text-align:center;">Нет уведомлений</div>';
                                     }
-                                } catch (e) {}
+                                } catch (e) { }
                             });
                         });
                         notificationsDropdown.querySelectorAll('.accept-invite-btn').forEach(btn => {
@@ -316,7 +326,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                                             notificationsBadge.style.display = 'none';
                                         }
                                     }
-                                } catch (e) {}
+                                } catch (e) { }
                             });
                         });
                         const deleteAllBtn = document.getElementById('deleteAllNotificationsBtn');
@@ -330,7 +340,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                                     if (notificationsBadge) {
                                         notificationsBadge.style.display = 'none';
                                     }
-                                } catch (e) {}
+                                } catch (e) { }
                             });
                         }
                     } catch (err) {
@@ -354,12 +364,12 @@ document.addEventListener('DOMContentLoaded', async function() {
             }
         }
     } catch (e) { /* игнор */ }
-    
+
     if (!currentUser) {
         const savedName = localStorage.getItem('spyPlayerName');
         if (savedName) playerNameInput.value = savedName;
     }
-    
+
     // Поиск пользователей по юзернейму
     const headerSearch = document.getElementById('headerSearch');
     const headerSearchResults = document.getElementById('headerSearchResults');
@@ -403,7 +413,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                 headerSearchResults.style.display = 'none';
         });
     }
-    
+
     // Настройка переключателя темы
     const savedTheme = localStorage.getItem('spyTheme');
     if (savedTheme === 'light') {
@@ -423,7 +433,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             icon.className = 'fas fa-volume-mute';
             soundToggleBtn.classList.add('sound-off');
         }
-        
+
         soundToggleBtn.addEventListener('click', toggleSound);
     }
 });
@@ -432,16 +442,56 @@ document.addEventListener('DOMContentLoaded', async function() {
 function setupEventListeners() {
     // Переключение темы
     themeToggle.addEventListener('change', toggleTheme);
-    
+
     // Присоединение к комнате
     joinRoomBtn.addEventListener('click', joinRoom);
-    
+
     // Создание комнаты
     createRoomBtn.addEventListener('click', createRoom);
-    
+
+    // Модальное окно открытых комнат
+    if (showPublicRoomsBtn && publicRoomsModal) {
+        showPublicRoomsBtn.addEventListener('click', () => {
+            if (publicRoomsList) {
+                publicRoomsList.innerHTML = '<div style="text-align: center; color: #888; padding: 20px;">Загрузка...</div>';
+            }
+            publicRoomsModal.classList.add('active');
+            socket.emit('get_public_rooms');
+        });
+    }
+    if (closePublicRoomsBtn && publicRoomsModal) {
+        closePublicRoomsBtn.addEventListener('click', () => {
+            publicRoomsModal.classList.remove('active');
+            playSound('button');
+        });
+    }
+    if (refreshPublicRoomsBtn) {
+        refreshPublicRoomsBtn.addEventListener('click', () => {
+            if (publicRoomsList) {
+                publicRoomsList.innerHTML = '<div style="text-align: center; color: #888; padding: 20px;">Загрузка...</div>';
+            }
+            socket.emit('get_public_rooms');
+            playSound('button');
+        });
+    }
+
+    // Переключатель видимости в лобби
+    if (lobbyPublicRoomToggle) {
+        lobbyPublicRoomToggle.addEventListener('change', (e) => {
+            if (isHost && roomCode) {
+                socket.emit('update_room_visibility', {
+                    roomCode: roomCode,
+                    isPublic: e.target.checked
+                });
+            } else {
+                e.preventDefault(); // Не даем переключить не-хосту
+            }
+        });
+    }
+
     // Вставить код из буфера
     pasteCodeBtn.addEventListener('click', pasteFromClipboard);
-    
+
     // Копировать код комнаты
     copyCodeBtn.addEventListener('click', () => {
         const code = roomCodeDisplay.textContent;
@@ -469,13 +519,13 @@ function setupEventListeners() {
             qrModal.classList.remove('active');
         });
     }
-    
+
     // Покинуть лобби
     leaveLobbyBtn.addEventListener('click', leaveLobby);
-    
+
     // Начать игру
     startGameBtn.addEventListener('click', startGame);
-    
+
     // Локации: добавить
     if (addLocationBtn && addLocationModal) {
         addLocationBtn.addEventListener('click', () => {
@@ -505,7 +555,7 @@ function setupEventListeners() {
                             myLocationsList.appendChild(btn);
                         });
                     })
-                    .catch(() => {});
+                    .catch(() => { });
             }
             addLocationModal.classList.add('active');
         });
@@ -628,15 +678,15 @@ function setupEventListeners() {
             addLocationModal.classList.remove('active');
         });
     }
-    
+
     // Отправка сообщения в общий чат
     sendSocialMessageBtn.addEventListener('click', sendSocialMessage);
-    socialMessageInput.addEventListener('keypress', function(e) {
+    socialMessageInput.addEventListener('keypress', function (e) {
         if (e.key === 'Enter') sendSocialMessage();
     });
-    
+
     // Угадать локацию (для шпиона)
-    spyGuessBtn.addEventListener('click', function() {
+    spyGuessBtn.addEventListener('click', function () {
         if (playerRole === 'spy') {
             // Запрашиваем варианты для угадывания
             socket.emit('get_spy_guess_options', {
@@ -644,50 +694,50 @@ function setupEventListeners() {
             });
         }
     });
-    
+
     // Инициировать голосование
     initiateVoteBtn.addEventListener('click', initiateEarlyVote);
-    
+
     // Модальное окно выбора игрока
-    cancelSelectionBtn.addEventListener('click', function() {
+    cancelSelectionBtn.addEventListener('click', function () {
         playSound('button');
         closeAllModals();
     });
-    
+
     // Модальное окно вопроса
     submitQuestionBtn.addEventListener('click', submitQuestion);
-    cancelQuestionBtn.addEventListener('click', function() {
+    cancelQuestionBtn.addEventListener('click', function () {
         playSound('button');
         closeAllModals();
     });
-    
+
     // Модальное окно ответа
     submitAnswerBtn.addEventListener('click', submitAnswer);
-    
+
     // Модальное окно голосования
     submitVoteBtn.addEventListener('click', submitVote);
-    cancelVoteBtn.addEventListener('click', function() {
+    cancelVoteBtn.addEventListener('click', function () {
         playSound('button');
         closeAllModals();
     });
-    
+
     // Закрыть модальное окно угадывания локации
-    closeSpyGuessBtn.addEventListener('click', function() {
+    closeSpyGuessBtn.addEventListener('click', function () {
         playSound('button');
         closeAllModals();
     });
-    
+
     // Закрыть финальное окно результатов
-    closeFinalResultsBtn.addEventListener('click', function() {
+    closeFinalResultsBtn.addEventListener('click', function () {
         playSound('button');
         // Сбрасываем флаг
         isModalOpen = false;
         // Закрываем модальное окно
         finalResultsModal.classList.remove('active');
-        
+
         // Явно скрываем фон модального окна
         finalResultsModal.style.display = 'none';
-        
+
         // Перезапускаем игру в той же комнате
         setTimeout(() => {
             // Проверяем, что игрок все еще в игре
@@ -699,14 +749,14 @@ function setupEventListeners() {
             }
         }, 100);
     });
-    
+
     // Звук при нажатии на любую кнопку
-    document.addEventListener('click', function(e) {
+    document.addEventListener('click', function (e) {
         if (e.target.tagName === 'BUTTON' && !e.target.disabled && !e.target.classList.contains('kick-btn')) {
             playSound('button');
         }
     });
-    
+
     // Кнопка "О сайте"
     const infoAboutSiteBtn = document.getElementById('infoAboutSiteBtn');
     const infoAboutSiteModal = document.getElementById('infoAboutSiteModal');
@@ -721,13 +771,13 @@ function setupEventListeners() {
             infoAboutSiteModal.classList.remove('active');
         });
     }
-    
+
     if (closeLocationImageViewerBtn && locationImageViewerModal) {
         closeLocationImageViewerBtn.addEventListener('click', () => {
             locationImageViewerModal.classList.remove('active');
         });
     }
-    
+
     // Закрыть модальное окно при клике на фон
     if (locationImageViewerModal) {
         locationImageViewerModal.addEventListener('click', (e) => {
@@ -736,19 +786,19 @@ function setupEventListeners() {
             }
         });
     }
-    
+
     // Кнопка "Вернуться на главную" на экране результатов
     if (backToMainBtn && finalResultsModal) {
-        backToMainBtn.addEventListener('click', function() {
+        backToMainBtn.addEventListener('click', function () {
             playSound('button');
             // Сбрасываем флаг
             isModalOpen = false;
             // Закрываем модальное окно
             finalResultsModal.classList.remove('active');
-            
+
             // Явно скрываем фон модального окна
             finalResultsModal.style.display = 'none';
-            
+
             // Возвращаемся на главную страницу
             setTimeout(() => {
                 // Проверяем, что игрок все еще в игре
@@ -766,91 +816,100 @@ function setupEventListeners() {
 // Настройка обработчиков событий Socket.io
 function setupSocketListeners() {
     // Подключение к серверу
-    socket.on('connect', function() {
+    socket.on('connect', function () {
         console.log('Подключено к серверу');
         updateConnectionStatus(true);
     });
-    
+
     // Отключение от сервера
-    socket.on('disconnect', function() {
+    socket.on('disconnect', function () {
         console.log('Отключено от сервера');
         updateConnectionStatus(false);
     });
-    
+
     // Ошибка подключения
-    socket.on('connect_error', function() {
+    socket.on('connect_error', function () {
         console.log('Ошибка подключения к серверу');
         updateConnectionStatus(false);
     });
-    
+
     // Ошибка от сервера
-    socket.on('error', function(data) {
+    socket.on('error', function (data) {
         showError(data.message);
     });
-    
+
     // Успешное присоединение к комнате
-    socket.on('room_joined', function(data) {
+    socket.on('room_joined', function (data) {
         playerId = data.playerId;
         roomCode = data.roomCode;
         isHost = data.isHost;
-        
+
         // Обновляем URL на /room/CODE
         if (window.history && window.history.pushState) {
             window.history.pushState(null, '', '/room/' + roomCode);
         }
-        
+
         // Сохраняем имя игрока
         localStorage.setItem('spyPlayerName', playerName);
-        
+
         // Переключаемся на экран лобби
         showScreen('lobbyScreen');
-        
+
+        // Настройка чекбокса открытой комнаты
+        if (lobbyPublicRoomToggle) {
+            lobbyPublicRoomToggle.checked = createPublicRoomCheckbox ? createPublicRoomCheckbox.checked : true;
+            lobbyPublicRoomToggle.disabled = !isHost;
+        }
+        if (roomVisibilityGroup) {
+            roomVisibilityGroup.style.display = isHost ? 'flex' : 'none';
+        }
+
         // Обновляем информацию о комнате
         roomCodeDisplay.textContent = roomCode;
         playerCount.textContent = data.players.length;
         hostNameEl.textContent = data.hostName;
-        
+
         // Обновляем список игроков
         updatePlayersList(data.players);
-        
+
         // Загружаем друзей для приглашения (если авторизован)
         if (currentUser) {
             loadFriendsForInvite();
         }
-        
+
         // Инициализируем список локаций для игры (только для хоста можно менять, но список показываем всем)
         locationsForGame = [...DEFAULT_LOCATIONS];
         renderLocationsList();
-        
+
         // Активируем кнопку "Начать игру" если игрок - хост и игроков достаточно
         updateStartButton(data.players.length);
-        
+
         // Добавляем системное сообщение
         addSystemMessage(`Вы присоединились к комнате ${roomCode}`);
-        
+
         // Очищаем ошибки
         clearError();
     });
-    
+
     // Обновление списка игроков
-    socket.on('players_update', function(data) {
+    socket.on('players_update', function (data) {
         playerCount.textContent = data.players.length;
         hostNameEl.textContent = data.hostName;
         updatePlayersList(data.players);
         updateStartButton(data.players.length);
     });
-    
+
     // Начало игры
-    socket.on('game_started', function(data) {
+    socket.on('game_started', function (data) {
         if (window.history && window.history.pushState) {
             window.history.pushState(null, '', '/game/' + roomCode);
         }
         showScreen('gameScreen');
-        
+
         // Устанавливаем роль игрока
         playerRole = data.playerRole;
         playerRoleEl.textContent = getRoleText(playerRole);
-        
+
         // Если игрок - шпион, показываем локацию как "????"
         // Иначе показываем настоящую локацию с аватаркой
         if (playerRole === 'spy') {
@@ -866,274 +925,321 @@ function setupSocketListeners() {
                 makeLocationImageClickable(img);
             })();
         }
-        
+
         // Обновляем информацию о ходе
         currentTurnEl.textContent = data.currentTurnPlayerName;
         currentTurnPlayerId = data.currentTurnPlayerId;
         isMyTurn = data.currentTurnPlayerId === playerId;
-        
+
         // Показываем/скрываем секцию для шпиона
-        document.getElementById('spyActionSection').style.display = 
+        document.getElementById('spyActionSection').style.display =
             playerRole === 'spy' ? 'block' : 'none';
-        
+
         // Очищаем историю ходов
         turnHistory.innerHTML = '';
-        
+
         // Очищаем чат
         socialChatMessages.innerHTML = '';
-        
+
         // Закрываем все модальные окна
         closeAllModals();
-        
+
         // Добавляем системное сообщение
         addSystemMessage(`Игра началась! Вы - ${getRoleText(playerRole)}. Локация: ${playerRole === 'spy' ? '????' : data.location}`);
-        
+
         // Создаем напоминание о локации для не-шпиона
         createLocationReminder();
-        
+
         // Если это наш ход, запрашиваем список доступных игроков
         if (isMyTurn) {
             setTimeout(() => {
                 requestAvailablePlayers();
             }, 1000);
         }
-        
+
         // Запускаем таймер
         startTimer(data.timerDuration);
     });
-    
+
     // Получение списка доступных игроков
-    socket.on('available_players', function(data) {
+    socket.on('available_players', function (data) {
         if (isMyTurn) {
             showPlayerSelectModal('Выберите игрока, которому хотите задать вопрос', data.players);
         }
     });
-    
+
     // Получение вопроса
-    socket.on('receive_question', function(data) {
+    socket.on('receive_question', function (data) {
         currentTurnEl.textContent = 'Ваш ход';
         isMyTurn = true;
         currentTimerType = 'answer';
-        
+
         // Показываем окно для ответа на вопрос
         showAnswerModal(data.askerName, data.question);
-        
+
         // Сбрасываем таймер для ответа
         startTimer(60);
     });
-    
+
     // Вопрос задан (для чата)
-    socket.on('question_asked_chat', function(data) {
+    socket.on('question_asked_chat', function (data) {
         // Добавляем вопрос в чат
         const isMyQuestion = data.askerId === playerId;
         addChatMessage(data.askerName, `задает вопрос игроку ${data.targetName}: "${data.question}"`, isMyQuestion, data.askerAvatarSeed);
-        
+
         // Добавляем в историю ходов
         addTurnEvent(data.askerName, `задал вопрос игроку ${data.targetName}`);
-        
+
         // Обновляем информацию о ходе
         currentTurnEl.textContent = data.targetName;
-        const targetPlayer = Array.from(document.querySelectorAll('#gamePlayersList li')).find(li => 
+        const targetPlayer = Array.from(document.querySelectorAll('#gamePlayersList li')).find(li =>
             li.textContent.includes(data.targetName)
         );
         if (targetPlayer) {
             currentTurnPlayerId = targetPlayer.dataset.playerId;
         }
         isMyTurn = currentTurnPlayerId === playerId;
-        
+
         if (isMyTurn) {
             currentTimerType = 'answer';
         }
-        
+
         // Закрываем модальные окна
         closeAllModals();
     });
-    
+
     // Ответ получен (для чата)
-    socket.on('answer_received_chat', function(data) {
+    socket.on('answer_received_chat', function (data) {
         // Добавляем ответ в чат
         const isMyAnswer = data.answererName === playerName;
         addChatMessage(data.answererName, `отвечает на вопрос "${data.question}" от ${data.askerName}: "${data.answer}"`, isMyAnswer, data.answererAvatarSeed);
-        
+
         // Добавляем в историю ходов
         addTurnEvent(data.answererName, 'ответил на вопрос');
-        
+
         // Закрываем модальные окна
         closeAllModals();
     });
-    
+
     // Следующий ход
-    socket.on('next_turn', function(data) {
+    socket.on('next_turn', function (data) {
         currentTurnEl.textContent = data.nextPlayerName;
         currentTurnPlayerId = data.nextPlayerId;
         isMyTurn = data.nextPlayerId === playerId;
         currentTimerType = 'question';
-        
+
         // Закрываем все модальные окна
         closeAllModals();
-        
+
         // Если это наш ход, запрашиваем список доступных игроков
         if (isMyTurn) {
             setTimeout(() => {
                 requestAvailablePlayers();
             }, 1000);
         }
-        
+
         // Сбрасываем таймер
         startTimer(60);
     });
-    
-    socket.on('new_social_message', function(data) {
+
+    socket.on('new_social_message', function (data) {
         const sender = data.isGuest ? data.sender + ' (гость)' : data.sender;
         addChatMessage(sender, data.message, data.senderId === playerId, data.avatarSeed);
     });
-    
+
     // Системное сообщение
-    socket.on('system_message', function(data) {
+    socket.on('system_message', function (data) {
         addSystemMessage(data.message);
     });
-    
+
     // Обновление таймера
-    socket.on('timer_update', function(timeLeft) {
+    socket.on('timer_update', function (timeLeft) {
         updateTimerDisplay(timeLeft);
     });
-    
+
     // Уведомление о времени
-    socket.on('time_up_notification', function(data) {
+    socket.on('time_up_notification', function (data) {
         // Закрываем все модальные окна
         closeAllModals();
-        
+
         // Отправляем серверу, что время вышло
         socket.emit('time_up', {
             roomCode: roomCode,
             timerType: data.timerType
         });
     });
-    
+
     // Начало голосования
-    socket.on('start_voting', function() {
+    socket.on('start_voting', function () {
         // Обновляем информацию о ходе
         currentTurnEl.textContent = 'Голосование';
         isMyTurn = false;
         currentTimerType = 'vote';
-        
+
         // Закрываем все модальные окна
         closeAllModals();
-        
+
         // Показываем модальное окно голосования
         showVoteModal();
-        
+
         // Сбрасываем таймер
         startTimer(60);
     });
-    
+
     // Список игроков для голосования
-    socket.on('vote_options', function(data) {
+    socket.on('vote_options', function (data) {
         showVoteOptions(data.players);
     });
-    
+
     // Шпион пойман, нужно угадать локацию
-    socket.on('spy_caught_guess', function(data) {
+    socket.on('spy_caught_guess', function (data) {
         if (playerRole === 'spy') {
             // Закрываем все модальные окна
             closeAllModals();
-            
+
             // Запрашиваем варианты для угадывания
             socket.emit('get_spy_guess_options', {
                 roomCode: roomCode
             });
-            
+
             currentTimerType = 'spy_guess';
             startTimer(60);
         }
     });
-    
+
     // Варианты для угадывания локации шпионом
-    socket.on('spy_guess_options', function(data) {
+    socket.on('spy_guess_options', function (data) {
         if (playerRole === 'spy') {
             spyGuessOptions = data.options;
             showSpyGuessModal();
         }
     });
-    
+
     // Конец игры
-    socket.on('game_end', function(data) {
+    socket.on('game_end', function (data) {
         // Останавливаем таймер
         if (turnTimer) clearInterval(turnTimer);
-        
+
         // Сбрасываем состояние игры
         isMyTurn = false;
         currentTurnPlayerId = null;
         currentTimerType = 'question';
-        
+
         // Закрываем все модальные окна, кроме финальных результатов
         closeAllModals();
-        
+
         // Показываем финальные результаты с небольшой задержкой
         setTimeout(() => {
             showFinalResults(data);
         }, 500);
     });
-    
+
     // Возврат в лобби
-    socket.on('return_to_lobby', function() {
+    socket.on('return_to_lobby', function () {
         if (window.history && window.history.pushState) {
             window.history.pushState(null, '', '/room/' + roomCode);
         }
         showScreen('lobbyScreen');
         addSystemMessage('Игра завершена! Все игроки возвращены в лобби.');
-        
+
         // Удаляем напоминание о локации
         if (locationReminder) {
             locationReminder.remove();
             locationReminder = null;
         }
-        
+
         // Закрываем все модальные окна
         closeAllModals();
     });
-    
+
     // Перезапуск игры в одной комнате
-    socket.on('restart_game_ready', function(data) {
+    socket.on('restart_game_ready', function (data) {
         if (window.history && window.history.pushState) {
             window.history.pushState(null, '', '/room/' + roomCode);
         }
         showScreen('lobbyScreen');
         addSystemMessage('Игра завершена! Вы вернулись в лобби. Хост может начать новую игру.');
-        
+
         // Удаляем напоминание о локации
         if (locationReminder) {
             locationReminder.remove();
             locationReminder = null;
         }
-        
+
         // Обновляем список игроков
         if (data.players) {
             updatePlayersList(data.players);
             playerCount.textContent = data.players.length;
             hostNameEl.textContent = data.hostName;
         }
-        
+
         // Закрываем все модальные окна
         closeAllModals();
     });
-    
+
     // Игрок был исключен
-    socket.on('player_kicked', function(data) {
+    socket.on('player_kicked', function (data) {
         if (data.kickedPlayerId === playerId) {
             showError('Вы были исключены из комнаты хостом');
             showScreen('connectionScreen');
-            
+
             // Удаляем напоминание о локации
             if (locationReminder) {
                 locationReminder.remove();
                 locationReminder = null;
             }
-            
+
             // Закрываем все модальные окна
             closeAllModals();
         } else {
             addSystemMessage(`${data.kickedPlayerName} был исключен из комнаты`);
+        }
+    });
+
+    // Список открытых комнат
+    socket.on('public_rooms_list', function (data) {
+        if (!publicRoomsList) return;
+
+        publicRoomsList.innerHTML = '';
+
+        if (!data.rooms || data.rooms.length === 0) {
+            publicRoomsList.innerHTML = '<div style="text-align: center; color: #888; padding: 20px;">Нет доступных открытых комнат</div>';
+            return;
+        }
+
+        data.rooms.forEach(room => {
+            const roomEl = document.createElement('div');
+            roomEl.className = 'player-option';
+            roomEl.style.cssText = 'display: flex; justify-content: space-between; align-items: center; padding: 12px 15px; margin-bottom: 8px; background: rgba(255,255,255,0.05); border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); transition: all 0.2s;';
+            roomEl.innerHTML = `
+                <div>
+                    <div><strong>Хост:</strong> ${escapeHtmlForDisplay(room.hostName)}</div>
+                    <div style="font-size: 0.85rem; color: #bbb; margin-top: 4px;"><i class="fas fa-users"></i> Игроков: ${room.playerCount}/10</div>
+                </div>
+                <button class="btn-primary join-public-room-btn" style="margin: 0; padding: 6px 12px; width: auto; font-size: 0.9rem;">Войти</button>
+            `;
+
+            const joinBtn = roomEl.querySelector('.join-public-room-btn');
+            joinBtn.addEventListener('click', () => {
+                playSound('button');
+                roomCodeInput.value = room.code;
+                publicRoomsModal.classList.remove('active');
+                joinRoom();
+            });
+
+            publicRoomsList.appendChild(roomEl);
+        });
+    });
+
+    // Изменение видимости комнаты
+    socket.on('room_visibility_updated', function (data) {
+        if (lobbyPublicRoomToggle) {
+            lobbyPublicRoomToggle.checked = data.isPublic;
+        }
+        if (data.isPublic) {
+            addSystemMessage('Хост сделал комнату открытой для всех');
+        } else {
+            addSystemMessage('Хост сделал комнату закрытой (только по коду)');
         }
     });
 }
@@ -1141,7 +1247,7 @@ function setupSocketListeners() {
 // Функция переключения темы
 function toggleTheme() {
     const body = document.body;
-    
+
     if (themeToggle.checked) {
         body.classList.remove('dark-theme');
         body.classList.add('light-theme');
@@ -1157,17 +1263,17 @@ function toggleTheme() {
 function joinRoom() {
     playerName = currentUser ? (currentUser.display_name || currentUser.username) : playerNameInput.value.trim();
     roomCode = roomCodeInput.value.trim().toUpperCase();
-    
+
     if (!playerName) {
         showError('Пожалуйста, введите ваше имя');
         return;
     }
-    
+
     if (!roomCode) {
         showError('Пожалуйста, введите код комнаты');
         return;
     }
-    
+
     // Отправляем запрос на присоединение к комнате
     socket.emit('join_room', {
         playerName: playerName,
@@ -1179,16 +1285,19 @@ function joinRoom() {
 // Функция создания комнаты
 function createRoom() {
     playerName = currentUser ? (currentUser.display_name || currentUser.username) : playerNameInput.value.trim();
-    
+
     if (!playerName) {
         showError('Пожалуйста, введите ваше имя');
         return;
     }
-    
+
+    const isPublic = createPublicRoomCheckbox ? createPublicRoomCheckbox.checked : true;
+
     // Отправляем запрос на создание комнаты
     socket.emit('create_room', {
         playerName: playerName,
-        userId: currentUser ? currentUser.id : null
+        userId: currentUser ? currentUser.id : null,
+        isPublic: isPublic
     });
 }
 
@@ -1241,13 +1350,13 @@ function leaveLobby() {
     }
     showScreen('connectionScreen');
     addSystemMessage('Вы покинули лобби');
-    
+
     // Удаляем напоминание о локации
     if (locationReminder) {
         locationReminder.remove();
         locationReminder = null;
     }
-    
+
     // Закрываем все модальные окна
     closeAllModals();
 }
@@ -1255,12 +1364,12 @@ function leaveLobby() {
 // Функция начала игры
 function startGame() {
     const locations = locationsForGame.filter(loc => (loc || '').trim());
-    
+
     if (locations.length < 5) {
         showLobbyError('Необходимо минимум 5 локаций для игры');
         return;
     }
-    
+
     socket.emit('start_game', {
         roomCode: roomCode,
         locations: locations
@@ -1270,14 +1379,14 @@ function startGame() {
 // Функция отправки сообщения в общий чат
 function sendSocialMessage() {
     const message = socialMessageInput.value.trim();
-    
+
     if (!message) return;
-    
+
     socket.emit('send_social_message', {
         roomCode: roomCode,
         message: message
     });
-    
+
     // Очищаем поле ввода
     socialMessageInput.value = '';
 }
@@ -1300,13 +1409,13 @@ function requestAvailablePlayers() {
 function showPlayerSelectModal(description, availablePlayers) {
     modalTitle.textContent = 'Выберите игрока';
     modalDescription.textContent = description;
-    
+
     // Добавляем подсказку с локацией для не-шпиона
     if (playerRole !== 'spy' && currentLocation) {
         (async () => {
             const avatarUrl = await getLocationAvatarUrl(currentLocation);
             modalDescription.innerHTML += `<br><small><i class="fas fa-map-marker-alt"></i> Локация: <img src="${avatarUrl}" alt="" style="width: 16px; height: 16px; border-radius: 3px; object-fit: cover; vertical-align: middle; margin: 0 4px; cursor: pointer;" title="Нажмите, чтобы увидеть локацию" onerror="this.style.display='none'"> <strong>${escapeHtmlForDisplay(currentLocation)}</strong></small>`;
-            
+
             // Делаем картинку локации кликабельной
             const locationImg = modalDescription.querySelector('img[src="' + avatarUrl + '"]');
             if (locationImg) {
@@ -1314,38 +1423,38 @@ function showPlayerSelectModal(description, availablePlayers) {
             }
         })();
     }
-    
+
     playerOptions.innerHTML = '';
-    
+
     if (availablePlayers && availablePlayers.length > 0) {
         availablePlayers.forEach(player => {
             if (player.id !== playerId) {
                 const option = document.createElement('div');
                 option.className = 'player-option';
                 option.dataset.playerId = player.id;
-                
+
                 let playerInfo = `<i class="fas fa-user"></i><span>${player.name}</span>`;
-                
+
                 // Добавляем иконку, если игроку уже задавали вопрос
                 if (player.hasBeenAsked) {
                     playerInfo += ` <i class="fas fa-comment-dots" style="color: #ffa502; margin-left: 5px;" title="Этому игроку уже задавали вопрос"></i>`;
                 }
-                
+
                 option.innerHTML = playerInfo;
-                
-                option.addEventListener('click', function() {
+
+                option.addEventListener('click', function () {
                     const selectedId = this.dataset.playerId;
                     const selectedName = player.name;
                     selectPlayerForQuestion(selectedId, selectedName);
                 });
-                
+
                 playerOptions.appendChild(option);
             }
         });
     } else {
         playerOptions.innerHTML = '<p>Нет доступных игроков для вопроса.</p>';
     }
-    
+
     playerSelectModal.classList.add('active');
 }
 
@@ -1353,7 +1462,7 @@ function showPlayerSelectModal(description, availablePlayers) {
 function selectPlayerForQuestion(playerId, playerName) {
     selectedPlayerForQuestion = { id: playerId, name: playerName };
     playerSelectModal.classList.remove('active');
-    
+
     // Показываем окно для ввода вопроса
     showQuestionModal(playerName);
 }
@@ -1365,17 +1474,17 @@ function showQuestionModal(targetName) {
     questionInput.value = '';
     questionModal.classList.add('active');
     questionInput.focus();
-    
+
     // Добавляем подсказку с локацией для не-шпиона
     const modalBody = document.querySelector('#questionModal .modal-body');
     let locationHint = modalBody.querySelector('.location-hint');
-    
+
     if (!locationHint) {
         locationHint = document.createElement('div');
         locationHint.className = 'location-hint';
         modalBody.insertBefore(locationHint, modalBody.firstChild);
     }
-    
+
     if (playerRole !== 'spy' && currentLocation) {
         (async () => {
             const avatarUrl = await getLocationAvatarUrl(currentLocation);
@@ -1393,26 +1502,26 @@ function showQuestionModal(targetName) {
 // Функция отправки вопроса
 function submitQuestion() {
     const question = questionInput.value.trim();
-    
+
     if (!question) {
         showError('Пожалуйста, введите вопрос');
         return;
     }
-    
+
     if (!selectedPlayerForQuestion) {
         showError('Не выбран игрок для вопроса');
         return;
     }
-    
+
     socket.emit('ask_question', {
         roomCode: roomCode,
         targetPlayerId: selectedPlayerForQuestion.id,
         question: question
     });
-    
+
     questionModal.classList.remove('active');
     selectedPlayerForQuestion = null;
-    
+
     // Сбрасываем таймер
     startTimer(60);
 }
@@ -1424,17 +1533,17 @@ function showAnswerModal(askerName, question) {
     answerInput.value = '';
     answerModal.classList.add('active');
     answerInput.focus();
-    
+
     // Добавляем подсказку с локацией для не-шпиона
     const modalBody = document.querySelector('#answerModal .modal-body');
     let locationHint = modalBody.querySelector('.location-hint');
-    
+
     if (!locationHint) {
         locationHint = document.createElement('div');
         locationHint.className = 'location-hint';
         modalBody.insertBefore(locationHint, modalBody.firstChild);
     }
-    
+
     if (playerRole !== 'spy' && currentLocation) {
         (async () => {
             const avatarUrl = await getLocationAvatarUrl(currentLocation);
@@ -1452,19 +1561,19 @@ function showAnswerModal(askerName, question) {
 // Функция отправки ответа
 function submitAnswer() {
     const answer = answerInput.value.trim();
-    
+
     if (!answer) {
         showError('Пожалуйста, введите ответ');
         return;
     }
-    
+
     socket.emit('answer_question', {
         roomCode: roomCode,
         answer: answer
     });
-    
+
     answerModal.classList.remove('active');
-    
+
     // Сбрасываем таймер
     startTimer(60);
 }
@@ -1473,7 +1582,7 @@ function submitAnswer() {
 function showVoteModal() {
     voteDescription.textContent = 'Проголосуйте за игрока, который, по вашему мнению, является шпионом:';
     votePlayerOptions.innerHTML = '';
-    
+
     // Добавляем подсказку с локацией для не-шпиона
     if (playerRole !== 'spy' && currentLocation) {
         (async () => {
@@ -1482,12 +1591,12 @@ function showVoteModal() {
                                         <small><i class="fas fa-map-marker-alt"></i> Локация: <img src="${avatarUrl}" alt="" style="width: 16px; height: 16px; border-radius: 3px; object-fit: cover; vertical-align: middle; margin: 0 4px;" onerror="this.style.display='none'"> <strong>${escapeHtmlForDisplay(currentLocation)}</strong></small>`;
         })();
     }
-    
+
     // Запрашиваем список игроков для голосования
     socket.emit('get_vote_options', {
         roomCode: roomCode
     });
-    
+
     voteModal.classList.add('active');
 }
 
@@ -1495,7 +1604,7 @@ function showVoteModal() {
 function showVoteOptions(players) {
     votePlayerOptions.innerHTML = '';
     selectedPlayerForVote = null;
-    
+
     players.forEach(player => {
         const option = document.createElement('div');
         option.className = 'player-option';
@@ -1504,22 +1613,22 @@ function showVoteOptions(players) {
             <i class="fas fa-user"></i>
             <span>${player.name}</span>
         `;
-        
-        option.addEventListener('click', function() {
+
+        option.addEventListener('click', function () {
             // Снимаем выделение со всех вариантов
             document.querySelectorAll('#votePlayerOptions .player-option').forEach(opt => {
                 opt.classList.remove('selected');
             });
-            
+
             // Выделяем выбранный вариант
             this.classList.add('selected');
             selectedPlayerForVote = this.dataset.playerId;
             submitVoteBtn.disabled = false;
         });
-        
+
         votePlayerOptions.appendChild(option);
     });
-    
+
     submitVoteBtn.disabled = true;
 }
 
@@ -1529,15 +1638,15 @@ function submitVote() {
         showError('Пожалуйста, выберите игрока для голосования');
         return;
     }
-    
+
     socket.emit('submit_vote', {
         roomCode: roomCode,
         votedPlayerId: selectedPlayerForVote
     });
-    
+
     voteModal.classList.remove('active');
     selectedPlayerForVote = null;
-    
+
     // Сбрасываем таймер
     startTimer(60);
 }
@@ -1545,7 +1654,7 @@ function submitVote() {
 // Функция показа модального окна для угадывания локации шпионом
 function showSpyGuessModal() {
     spyGuessOptionsContainer.innerHTML = '';
-    
+
     spyGuessOptions.forEach((option, index) => {
         const optionDiv = document.createElement('div');
         optionDiv.className = 'player-option';
@@ -1553,23 +1662,23 @@ function showSpyGuessModal() {
             <i class="fas fa-map-marker-alt"></i>
             <span>${option}</span>
         `;
-        
-        optionDiv.addEventListener('click', function() {
+
+        optionDiv.addEventListener('click', function () {
             // Отправляем выбранный вариант
             socket.emit('guess_location', {
                 roomCode: roomCode,
                 guess: option
             });
-            
+
             spyGuessModal.classList.remove('active');
-            
+
             // Сбрасываем таймер
             startTimer(60);
         });
-        
+
         spyGuessOptionsContainer.appendChild(optionDiv);
     });
-    
+
     spyGuessModal.classList.add('active');
 }
 
@@ -1594,15 +1703,15 @@ function closeAllModals() {
         qrModal
         // finalResultsModal не закрываем, так как это окно результатов
     ];
-    
+
     modals.forEach(modal => {
         modal.classList.remove('active');
     });
-    
+
     // Сбрасываем выбранных игроков
     selectedPlayerForQuestion = null;
     selectedPlayerForVote = null;
-    
+
     // Сбрасываем флаг
     isModalOpen = false;
 }
@@ -1613,16 +1722,16 @@ function showScreen(screenId) {
     connectionScreen.classList.remove('active');
     lobbyScreen.classList.remove('active');
     gameScreen.classList.remove('active');
-    
+
     // Удаляем напоминание о локации если выходим из игры
     if (screenId !== 'gameScreen' && locationReminder) {
         locationReminder.remove();
         locationReminder = null;
     }
-    
+
     // Закрываем все модальные окна при смене экрана
     closeAllModals();
-    
+
     // Показываем нужный экран
     document.getElementById(screenId).classList.add('active');
 }
@@ -1667,13 +1776,13 @@ const DEFAULT_LOCATION_IMAGES = {
 function updatePlayersList(players) {
     // Обновляем список игроков в лобби
     playersList.innerHTML = '';
-    
+
     players.forEach(player => {
         const li = document.createElement('li');
-        
+
         const guestBadge = !player.userId ? ' <span class="guest-badge" title="Не авторизован">(гость)</span>' : '';
         const avatarUrl = player.avatarSeed ? getAvatarUrl(player.avatarSeed) : getAvatarUrl(player.name);
-        const nameDisplay = player.userId 
+        const nameDisplay = player.userId
             ? `<a href="/profile/${player.userId}" target="_blank" rel="noopener" style="color: inherit; text-decoration: none; font-weight: 600;">${escapeHtmlForDisplay(player.name)}</a>`
             : `<span>${escapeHtmlForDisplay(player.name)}</span>`;
         let playerContent = `
@@ -1685,7 +1794,7 @@ function updatePlayersList(players) {
                 </div>
             </div>
         `;
-        
+
         // Добавляем кнопку исключения для хоста
         if (isHost && player.id !== playerId) {
             playerContent += `
@@ -1696,14 +1805,14 @@ function updatePlayersList(players) {
                 </div>
             `;
         }
-        
+
         li.innerHTML = playerContent;
         playersList.appendChild(li);
     });
-    
+
     // Обновляем список игроков в игре
     gamePlayersList.innerHTML = '';
-    
+
     players.forEach(player => {
         const li = document.createElement('li');
         li.className = 'online';
@@ -1774,7 +1883,7 @@ async function loadFriendsForInvite() {
         } else {
             inviteSection.style.display = 'none';
         }
-    } catch (e) {}
+    } catch (e) { }
 }
 
 async function getLocationAvatarUrl(locationName) {
@@ -1812,11 +1921,11 @@ async function renderLocationsList() {
         chip.style.cssText = 'display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; margin: 4px; background: rgba(77,184,255,0.2); border-radius: 20px; font-size: 0.9rem; word-wrap: break-word; overflow-wrap: break-word; white-space: normal; max-width: 100%;';
         const avatarUrl = await getLocationAvatarUrl(name);
         chip.innerHTML = `<img src="${avatarUrl}" alt="" style="width: 20px; height: 20px; border-radius: 4px; object-fit: cover; flex-shrink: 0;" onerror="this.src='https://api.dicebear.com/7.x/shapes/svg?seed=${encodeURIComponent(name)}&backgroundColor=4db8ff'"> ${escapeHtmlForDisplay(name)}` + (isHost ? ' <button type="button" class="location-chip-remove" style="background:none;border:none;color:#ff6b6b;cursor:pointer;padding:0 4px;font-size:1rem;">&times;</button>' : '');
-        
+
         // Make the location image clickable
         const img = chip.querySelector('img');
         makeLocationImageClickable(img);
-        
+
         const removeBtn = chip.querySelector('.location-chip-remove');
         if (removeBtn) {
             removeBtn.addEventListener('click', () => {
@@ -1835,7 +1944,7 @@ function addSystemMessage(text) {
 function addChatMessage(sender, text, isSentByMe = false, senderAvatarSeed = null) {
     const messageDiv = document.createElement('div');
     messageDiv.className = 'message';
-    
+
     if (sender === 'Система') {
         messageDiv.classList.add('system');
     } else if (isSentByMe) {
@@ -1843,36 +1952,36 @@ function addChatMessage(sender, text, isSentByMe = false, senderAvatarSeed = nul
     } else {
         messageDiv.classList.add('received');
     }
-    
+
     if (sender !== 'Система') {
         const senderContainer = document.createElement('div');
         senderContainer.className = 'sender-container';
         senderContainer.style.display = 'flex';
         senderContainer.style.alignItems = 'center';
         senderContainer.style.gap = '8px';
-        
+
         const avatarUrl = senderAvatarSeed ? getAvatarUrl(senderAvatarSeed) : getAvatarUrl(sender);
         const avatarImg = document.createElement('img');
         avatarImg.src = avatarUrl;
         avatarImg.style.cssText = 'width: 24px; height: 24px; border-radius: 50%; object-fit: cover; flex-shrink: 0;';
         avatarImg.alt = sender;
-        
+
         const senderSpan = document.createElement('div');
         senderSpan.className = 'sender';
         senderSpan.textContent = sender;
-        
+
         senderContainer.appendChild(avatarImg);
         senderContainer.appendChild(senderSpan);
         messageDiv.appendChild(senderContainer);
     }
-    
+
     const textSpan = document.createElement('div');
     textSpan.className = 'text';
     textSpan.textContent = text;
-    
+
     messageDiv.appendChild(textSpan);
     socialChatMessages.appendChild(messageDiv);
-    
+
     // Прокручиваем вниз
     socialChatMessages.scrollTop = socialChatMessages.scrollHeight;
 }
@@ -1880,20 +1989,20 @@ function addChatMessage(sender, text, isSentByMe = false, senderAvatarSeed = nul
 function addTurnEvent(playerName, action) {
     const eventDiv = document.createElement('div');
     eventDiv.className = 'turn-event';
-    
+
     eventDiv.innerHTML = `
         <div class="player">${playerName}</div>
         <div class="action">${action}</div>
     `;
-    
+
     turnHistory.appendChild(eventDiv);
-    
+
     // Прокручиваем вниз
     turnHistory.scrollTop = turnHistory.scrollHeight;
 }
 
 function getRoleText(role) {
-    switch(role) {
+    switch (role) {
         case 'spy': return 'Шпион';
         case 'civilian': return 'Мирный житель';
         default: return 'Неизвестно';
@@ -1903,14 +2012,14 @@ function getRoleText(role) {
 function startTimer(duration) {
     // Очищаем предыдущий таймер
     if (turnTimer) clearInterval(turnTimer);
-    
+
     let timeLeft = duration;
     updateTimerDisplay(timeLeft);
-    
+
     turnTimer = setInterval(() => {
         timeLeft--;
         updateTimerDisplay(timeLeft);
-        
+
         if (timeLeft <= 0) {
             clearInterval(turnTimer);
             // Время вышло
@@ -1918,7 +2027,7 @@ function startTimer(duration) {
                 roomCode: roomCode,
                 timerType: currentTimerType
             });
-            
+
             // Закрываем все модальные окна при окончании времени
             closeAllModals();
         }
@@ -1929,7 +2038,7 @@ function updateTimerDisplay(timeLeft) {
     const minutes = Math.floor(timeLeft / 60);
     const seconds = timeLeft % 60;
     timerEl.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
-    
+
     // Меняем цвет при малом времени
     if (timeLeft <= 10) {
         timerEl.style.color = '#ff4757';
@@ -1955,7 +2064,7 @@ function openLocationImageViewer(imageSrc) {
 function makeLocationImageClickable(imgElement) {
     if (imgElement) {
         imgElement.style.cursor = 'pointer';
-        imgElement.addEventListener('click', function(e) {
+        imgElement.addEventListener('click', function (e) {
             e.stopPropagation();
             openLocationImageViewer(this.src);
         });
@@ -1969,7 +2078,7 @@ function createLocationReminder() {
         locationReminder.remove();
         locationReminder = null;
     }
-    
+
     // Создаем напоминание только для не-шпиона
     if (playerRole !== 'spy' && currentLocation) {
         locationReminder = document.createElement('div');
@@ -1985,12 +2094,12 @@ function createLocationReminder() {
             const img = locationReminder.querySelector('img');
             makeLocationImageClickable(img);
         })();
-        
+
         // Добавляем на страницу
         document.body.appendChild(locationReminder);
-        
+
         // Показываем/скрываем при клике
-        locationReminder.addEventListener('click', function(e) {
+        locationReminder.addEventListener('click', function (e) {
             if (e.target.tagName === 'IMG') return; // Don't minimize when clicking the image
             this.classList.toggle('minimized');
             if (this.classList.contains('minimized')) {
@@ -2015,12 +2124,12 @@ function createLocationReminder() {
 }
 
 function showFinalResults(data) {
-    const isWinner = (data.winner === 'spies' && playerRole === 'spy') || 
-                     (data.winner === 'civilians' && playerRole === 'civilian');
-    
+    const isWinner = (data.winner === 'spies' && playerRole === 'spy') ||
+        (data.winner === 'civilians' && playerRole === 'civilian');
+
     // Устанавливаем флаг, что модальное окно открыто
     isModalOpen = true;
-    
+
     // Создаем стиль для центрального отображения
     const modalContent = finalResultsModal.querySelector('.modal-content');
     modalContent.style.textAlign = 'center';
@@ -2031,7 +2140,7 @@ function showFinalResults(data) {
     modalContent.style.alignItems = 'center';
     modalContent.style.justifyContent = 'center';
     modalContent.style.padding = '40px 30px';
-    
+
     if (isWinner) {
         finalResultsTitle.textContent = 'ПОБЕДА!';
         finalResultsTitle.style.color = '#4cd964';
@@ -2063,7 +2172,7 @@ function showFinalResults(data) {
         finalResultsIcon.style.display = 'block';
         playSound('lose');
     }
-    
+
     let html = `
         <div class="final-results-content" style="width: 100%; text-align: center;">
             <div class="result-item ${isWinner ? 'success' : 'failure'}" style="text-align: center; margin-bottom: 25px; display: flex; flex-direction: column; align-items: center;">
@@ -2084,11 +2193,11 @@ function showFinalResults(data) {
             </div>
         </div>
     `;
-    
+
     finalResultsBody.innerHTML = html;
     finalResultsBody.style.width = '100%';
     finalResultsBody.style.textAlign = 'center';
-    
+
     // Загружаем аватарку локации
     (async () => {
         const avatarUrl = await getLocationAvatarUrl(data.location);
@@ -2100,23 +2209,23 @@ function showFinalResults(data) {
             makeLocationImageClickable(avatarEl);
         }
     })();
-    
+
     finalResultsModal.classList.add('active');
 }
 
 function updateConnectionStatus(connected) {
     // Если модальное окно открыто, не обновляем статус подключения
     if (isModalOpen) return;
-    
+
     // Проверяем, что элемент существует
     if (!connectionStatus) return;
-    
+
     const icon = connectionStatus.querySelector('i');
     const text = connectionStatus.querySelector('span');
-    
+
     // Проверяем, что элементы найдены
     if (!icon || !text) return;
-    
+
     if (connected) {
         icon.className = 'fas fa-wifi';
         connectionStatus.style.color = '#4cd964';
@@ -2131,7 +2240,7 @@ function updateConnectionStatus(connected) {
 function showError(message) {
     errorContainer.textContent = message;
     errorContainer.classList.add('active');
-    
+
     // Автоматическое скрытие через 5 секунд
     setTimeout(() => {
         clearError();
@@ -2159,10 +2268,10 @@ function showCopyNotification(message) {
         notification.className = 'copy-notification';
         document.body.appendChild(notification);
     }
-    
+
     notification.textContent = message;
     notification.classList.add('active');
-    
+
     setTimeout(() => {
         notification.classList.remove('active');
     }, 2000);
@@ -2171,7 +2280,7 @@ function showCopyNotification(message) {
 function playSound(type) {
     try {
         let sound;
-        switch(type) {
+        switch (type) {
             case 'button':
                 sound = buttonSound;
                 sound.volume = 0.3;
@@ -2185,7 +2294,7 @@ function playSound(type) {
                 sound.volume = 0.5;
                 break;
         }
-        
+
         if (sound) {
             sound.currentTime = 0;
             sound.play().catch(e => console.log('Не удалось воспроизвести звук:', e));
@@ -2202,21 +2311,21 @@ let emojiEnabled = localStorage.getItem('spyEmojiEnabled') !== 'false';
 function createSpyEmojiRain() {
     const rainContainer = document.querySelector('.emoji-rain');
     if (!rainContainer) return;
-    
+
     // Очищаем контейнер
     rainContainer.innerHTML = '';
-    
+
     // Если эмодзи отключены, не создаем их
     if (!emojiEnabled) {
         rainContainer.style.display = 'none';
         return;
     }
-    
+
     rainContainer.style.display = 'block';
-    
+
     // Создаем 70 падающих эмодзи
     const emojis = ['🕵️', '🕵️‍♂️', '🕵️‍♀️', '🔍', '🗺️', '🎯', '🎭'];
-    
+
     for (let i = 0; i < 70; i++) {
         const emoji = document.createElement('div');
         emoji.className = 'falling-emoji';
@@ -2225,10 +2334,10 @@ function createSpyEmojiRain() {
         emoji.style.animationDuration = Math.random() * 15 + 15 + 's';
         emoji.style.animationDelay = Math.random() * -30 + 's';
         emoji.style.fontSize = Math.random() * 20 + 20 + 'px';
-        
+
         const opacity = Math.random() * 0.08 + 0.12;
         emoji.style.opacity = opacity;
-        
+
         rainContainer.appendChild(emoji);
     }
 }
@@ -2237,11 +2346,11 @@ function createSpyEmojiRain() {
 function toggleEmoji() {
     emojiEnabled = !emojiEnabled;
     localStorage.setItem('spyEmojiEnabled', emojiEnabled);
-    
+
     const emojiToggleBtn = document.getElementById('emojiToggleBtn');
     const icon = emojiToggleBtn.querySelector('i');
     const rainContainer = document.querySelector('.emoji-rain');
-    
+
     if (emojiEnabled) {
         icon.className = 'fas fa-cloud-moon';
         emojiToggleBtn.classList.remove('emoji-off');
@@ -2266,10 +2375,10 @@ let soundEnabled = localStorage.getItem('spySoundEnabled') !== 'false';
 function toggleSound() {
     soundEnabled = !soundEnabled;
     localStorage.setItem('spySoundEnabled', soundEnabled);
-    
+
     const soundToggleBtn = document.getElementById('soundToggleBtn');
     const icon = soundToggleBtn.querySelector('i');
-    
+
     if (soundEnabled) {
         icon.className = 'fas fa-volume-up';
         soundToggleBtn.classList.remove('sound-off');
@@ -2281,7 +2390,7 @@ function toggleSound() {
 
 // Переопределяем функцию playSound
 const originalPlaySound = playSound;
-playSound = function(type) {
+playSound = function (type) {
     if (!soundEnabled) return;
     if (typeof originalPlaySound === 'function') {
         originalPlaySound(type);
@@ -2289,12 +2398,12 @@ playSound = function(type) {
 };
 
 // Обновляем функцию переключения темы
-const originalToggleTheme = window.toggleTheme || function() {};
-window.toggleTheme = function() {
+const originalToggleTheme = window.toggleTheme || function () { };
+window.toggleTheme = function () {
     if (typeof originalToggleTheme === 'function') {
         originalToggleTheme();
     }
-    
+
     setTimeout(() => {
         if (emojiEnabled) {
             createSpyEmojiRain();
@@ -2303,7 +2412,7 @@ window.toggleTheme = function() {
 };
 
 // Инициализация при загрузке страницы
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
     // Создаем падающие эмодзи
     if (emojiEnabled) {
         createSpyEmojiRain();
@@ -2313,7 +2422,7 @@ document.addEventListener('DOMContentLoaded', function() {
             rainContainer.style.display = 'none';
         }
     }
-    
+
     // Настраиваем кнопку звука
     const soundToggleBtn = document.getElementById('soundToggleBtn');
     if (soundToggleBtn) {
@@ -2325,10 +2434,10 @@ document.addEventListener('DOMContentLoaded', function() {
             icon.className = 'fas fa-volume-up';
             soundToggleBtn.classList.add('sound-off');
         }
-        
+
         soundToggleBtn.addEventListener('click', toggleSound);
     }
-    
+
     // Настраиваем кнопку отключения эмодзи
     const emojiToggleBtn = document.getElementById('emojiToggleBtn');
     if (emojiToggleBtn) {
@@ -2340,7 +2449,7 @@ document.addEventListener('DOMContentLoaded', function() {
             icon.className = 'fas fa-cloud-moon';
             emojiToggleBtn.classList.add('emoji-off');
         }
-        
+
         emojiToggleBtn.addEventListener('click', toggleEmoji);
     }
 });
@@ -2348,13 +2457,13 @@ document.addEventListener('DOMContentLoaded', function() {
 // Периодически обновляем эмодзи
 setInterval(() => {
     if (!emojiEnabled) return;
-    
+
     const rainContainer = document.querySelector('.emoji-rain');
     if (rainContainer && rainContainer.children.length < 60) {
         const emojis = ['🕵️', '🕵️‍♂️', '🕵️‍♀️', '🔍', '🗺️', '🎯', '🎭'];
         for (let i = 0; i < 10; i++) {
             if (rainContainer.children.length >= 80) break;
-            
+
             const emoji = document.createElement('div');
             emoji.className = 'falling-emoji';
             emoji.innerHTML = emojis[Math.floor(Math.random() * emojis.length)];

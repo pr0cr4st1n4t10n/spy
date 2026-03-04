@@ -251,7 +251,7 @@ io.on('connection', (socket) => {
     
     // Создание комнаты
     socket.on('create_room', (data) => {
-        const { playerName, userId } = data;
+        const { playerName, userId, isPublic } = data;
         
         let finalName = playerName;
         let finalUserId = userId || null;
@@ -288,6 +288,7 @@ io.on('connection', (socket) => {
         // Создаем комнату
         rooms[roomCode] = {
             code: roomCode,
+            isPublic: isPublic !== false, // По умолчанию true
             players: [],
             gameStarted: false,
             locations: [...defaultLocations],
@@ -434,6 +435,35 @@ io.on('connection', (socket) => {
         
         // Начинаем игру
         startGame(room);
+    });
+    
+    // Получить список открытых комнат
+    socket.on('get_public_rooms', () => {
+        const publicRooms = Object.values(rooms)
+            .filter(r => r.isPublic && !r.gameStarted && !r.gameEnded)
+            .map(r => {
+                const host = r.players.find(p => p.isHost);
+                return {
+                    code: r.code,
+                    hostName: host ? host.name : 'Неизвестно',
+                    playerCount: r.players.length
+                };
+            });
+        
+        socket.emit('public_rooms_list', { rooms: publicRooms });
+    });
+
+    // Изменить видимость комнаты
+    socket.on('update_room_visibility', (data) => {
+        const { roomCode, isPublic } = data;
+        const room = rooms[roomCode];
+        const player = players[socket.id];
+        
+        if (!room || !player || !player.isHost) return;
+        
+        room.isPublic = !!isPublic;
+        
+        io.to(roomCode).emit('room_visibility_updated', { isPublic: room.isPublic });
     });
     
     // Отправка сообщения в общий чат

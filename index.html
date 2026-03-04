@@ -84,10 +84,17 @@
                     </div>
                     <div id="errorContainer" class="error-container"></div>
                     <button id="joinRoom" class="btn-primary">
-                        <i class="fas fa-sign-in-alt"></i> Присоединиться
+                        <i class="fas fa-sign-in-alt"></i> Присоединиться по коду
+                    </button>
+                    <button id="showPublicRooms" class="btn-secondary" style="margin-top: 10px;">
+                        <i class="fas fa-list"></i> Список открытых комнат
                     </button>
                     <div class="divider">
                         <span>или</span>
+                    </div>
+                    <div class="form-group" style="display: flex; align-items: center; justify-content: center; margin-bottom: 10px; gap: 8px;">
+                        <input type="checkbox" id="createPublicRoom" checked style="width: auto; margin: 0; cursor: pointer;">
+                        <label for="createPublicRoom" style="margin: 0; display: inline; font-size: 0.9rem; cursor: pointer;">Открытая комната (видна всем)</label>
                     </div>
                     <button id="createRoom" class="btn-secondary">
                         <i class="fas fa-plus-circle"></i> Создать новую игру
@@ -123,6 +130,10 @@
                     
                     <div class="game-settings">
                         <h3><i class="fas fa-cog"></i> Настройки игры</h3>
+                        <div class="form-group" id="roomVisibilityGroup" style="display: flex; align-items: center; gap: 8px; margin-bottom: 15px; background: rgba(255,255,255,0.05); padding: 10px; border-radius: 8px;">
+                            <input type="checkbox" id="lobbyPublicRoomToggle" style="width: auto; margin: 0; cursor: pointer;">
+                            <label for="lobbyPublicRoomToggle" style="margin: 0; display: inline; cursor: pointer;">Открытая комната (видна всем)</label>
+                        </div>
                         <div class="form-group">
                             <label>Локации для игры:</label>
                             <div id="locationsList" class="locations-chips"></div>
@@ -280,6 +291,25 @@
                 <i class="fas fa-wifi"></i> <span>Подключение к серверу...</span>
             </p>
         </footer>
+    </div>
+
+    <!-- Модальное окно со списком открытых комнат -->
+    <div id="publicRoomsModal" class="modal">
+        <div class="modal-content">
+            <h2><i class="fas fa-list"></i> Открытые комнаты</h2>
+            <div class="modal-body" style="max-height: 60vh; overflow-y: auto;">
+                <div style="display: flex; justify-content: flex-end; margin-bottom: 15px;">
+                    <button id="refreshPublicRoomsBtn" class="btn-secondary" style="width: auto; font-size: 0.85rem; padding: 6px 12px;">
+                        <i class="fas fa-sync-alt"></i> Обновить
+                    </button>
+                </div>
+                <div id="publicRoomsList" style="display: flex; flex-direction: column; gap: 10px;">
+                    <!-- Список комнат будет добавляться сюда -->
+                    <div style="text-align: center; color: #888; padding: 20px;">Загрузка...</div>
+                </div>
+            </div>
+            <button id="closePublicRoomsBtn" class="btn-secondary">Закрыть</button>
+        </div>
     </div>
 
     <!-- Модальное окно для выбора игрока -->
