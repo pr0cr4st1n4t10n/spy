@@ -7,7 +7,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (themeToggle) themeToggle.checked = true;
     }
 
-    initAdminHeaderAuth();
+    initAdminAccess();
     initTabs();
     loadAdminSummary();
     initUsersTab();
@@ -20,21 +20,14 @@ document.addEventListener('DOMContentLoaded', () => {
     if (cancelStatsBtn) cancelStatsBtn.addEventListener('click', closeStatsModal);
 });
 
-async function initAdminHeaderAuth() {
-    const el = document.getElementById('adminHeaderAuth');
+async function initAdminAccess() {
     const accessError = document.getElementById('adminAccessError');
     const adminContent = document.getElementById('adminContent');
-    if (!el) return;
     try {
         const res = await fetch('/api/auth/me', { credentials: 'same-origin' });
         const data = await res.json();
         const user = data.user;
         if (!user) {
-            el.innerHTML = `
-                <a href="/login" style="color:#4db8ff;text-decoration:none;">
-                    <i class="fas fa-sign-in-alt"></i> Войти
-                </a>
-            `;
             if (accessError) {
                 accessError.textContent = 'Доступ только для администраторов. Войдите под пользователем admin.';
                 accessError.style.display = 'block';
@@ -42,23 +35,7 @@ async function initAdminHeaderAuth() {
             }
             return;
         }
-        const isAdmin = !!user.is_admin;
-        el.innerHTML = `
-            <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
-                <a href="/profile/${user.id}" style="color:#4db8ff;text-decoration:none;">
-                    <i class="fas fa-user-shield"></i> ${escapeHtml(user.display_name || user.username)}
-                </a>
-                <a href="/" style="color:#4db8ff;text-decoration:none;"><i class="fas fa-gamepad"></i> Играть</a>
-                <a href="#" id="adminLogoutBtn" style="color:#ff6b6b;text-decoration:none;"><i class="fas fa-sign-out-alt"></i> Выйти</a>
-            </div>
-        `;
-        document.getElementById('adminLogoutBtn')?.addEventListener('click', async (e) => {
-            e.preventDefault();
-            await fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' });
-            window.location.href = '/';
-        });
-
-        if (!isAdmin) {
+        if (!user.is_admin) {
             if (accessError) {
                 accessError.textContent = 'У вашего аккаунта нет прав администратора.';
                 accessError.style.display = 'block';
@@ -66,9 +43,7 @@ async function initAdminHeaderAuth() {
             }
             return;
         }
-        if (adminContent) {
-            adminContent.style.display = 'block';
-        }
+        if (adminContent) adminContent.style.display = 'block';
     } catch {
         if (accessError) {
             accessError.textContent = 'Ошибка проверки прав доступа.';

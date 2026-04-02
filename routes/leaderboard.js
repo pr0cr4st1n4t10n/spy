@@ -24,4 +24,30 @@ router.get('/', (req, res) => {
     }
 });
 
+// Топ клубов по суммарному рейтингу участников (команда = сумма рейтингов в клубе)
+router.get('/clubs', (req, res) => {
+    try {
+        const clubs = db.prepare(`
+            SELECT
+                c.id,
+                c.name,
+                c.description,
+                COALESCE(SUM(ms.rating), 0) AS team_rating,
+                COUNT(DISTINCT cm.user_id) AS members_count,
+                COALESCE(SUM(ms.games_played), 0) AS total_games
+            FROM clubs c
+            LEFT JOIN club_members cm ON cm.club_id = c.id AND cm.accepted = 1
+            LEFT JOIN club_member_stats ms ON ms.club_id = c.id AND ms.user_id = cm.user_id
+            GROUP BY c.id
+            HAVING members_count > 0
+            ORDER BY team_rating DESC, members_count DESC, c.name ASC
+            LIMIT 50
+        `).all();
+        res.json({ clubs });
+    } catch (err) {
+        console.error('Ошибка leaderboard/clubs:', err);
+        res.status(500).json({ error: 'Ошибка сервера' });
+    }
+});
+
 module.exports = router;

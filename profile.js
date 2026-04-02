@@ -591,56 +591,6 @@ async function openLikesModal(profileUserId) {
     }
 }
 
-async function updateHeaderAuth() {
-    const el = document.getElementById('headerAuth');
-    if (!el) return;
-    try {
-        const res = await fetch('/api/auth/me', { credentials: 'same-origin' });
-        const data = await res.json();
-        if (data.user) {
-            const isAdmin = !!data.user.is_admin;
-            el.innerHTML = `
-                <div style="display: flex; gap: 15px; align-items: center; flex-wrap: wrap;">
-                    <a href="/profile/${data.user.id}" style="color: #4db8ff; text-decoration: none;">
-                        <i class="fas fa-user"></i> ${escapeHtml(data.user.display_name || data.user.username)}
-                    </a>
-                    <a href="/leaderboard" style="color: #4db8ff; text-decoration: none;">
-                        <i class="fas fa-trophy"></i> Рейтинг
-                    </a>
-                    ${isAdmin ? '<a href="/admin" id="adminLink" style="color:#ffd700;text-decoration:none;"><i class="fas fa-shield-alt"></i> Админ‑панель</a>' : ''}
-                    <a href="#" id="logoutBtn" style="color: #ff6b6b; text-decoration: none;">
-                        <i class="fas fa-sign-out-alt"></i> Выйти
-                    </a>
-                </div>
-            `;
-            document.getElementById('logoutBtn')?.addEventListener('click', async (e) => {
-                e.preventDefault();
-                await fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' });
-                window.location.reload();
-            });
-        } else {
-            el.innerHTML = `
-                <div style="display: flex; gap: 15px; align-items: center; flex-wrap: wrap;">
-                    <a href="/login" style="color: #4db8ff; text-decoration: none;">
-                        <i class="fas fa-sign-in-alt"></i> Войти
-                    </a>
-                    <a href="/leaderboard" style="color: #4db8ff; text-decoration: none;">
-                        <i class="fas fa-trophy"></i> Рейтинг
-                    </a>
-                </div>
-            `;
-        }
-    } catch {
-        el.innerHTML = `
-            <div style="display: flex; gap: 15px; align-items: center; flex-wrap: wrap;">
-                <a href="/login" style="color: #4db8ff; text-decoration: none;">
-                    Войти
-                </a>
-            </div>
-        `;
-    }
-}
-
 // Последние 10 игр в виде квадратов "Ш +25 / М -15"
 function renderRecentGamesBoxes(recentGames) {
     const boxesEl = document.getElementById('recentGamesBoxes');
@@ -684,48 +634,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (savedTheme === 'light') {
         document.body.classList.remove('dark-theme');
         document.body.classList.add('light-theme');
+        const themeToggle = document.getElementById('themeToggle');
+        if (themeToggle) themeToggle.checked = true;
     }
-    updateHeaderAuth();
     loadProfile();
-    // Поиск в шапке
-    const headerSearch = document.getElementById('headerSearch');
-    const headerSearchResults = document.getElementById('headerSearchResults');
-    if (headerSearch && headerSearchResults) {
-        let searchTimeout;
-        headerSearch.addEventListener('input', () => {
-            clearTimeout(searchTimeout);
-            const q = headerSearch.value.trim();
-            if (q.length < 2) {
-                headerSearchResults.style.display = 'none';
-                headerSearchResults.innerHTML = '';
-                return;
-            }
-            searchTimeout = setTimeout(async () => {
-                try {
-                    const res = await fetch('/api/profile/search?q=' + encodeURIComponent(q));
-                    const data = await res.json();
-                    headerSearchResults.innerHTML = '';
-                    if (data.users && data.users.length > 0) {
-                        data.users.forEach(u => {
-                            const a = document.createElement('a');
-                            a.href = '/profile/' + u.id;
-                            a.style.cssText = 'display: flex; align-items: center; gap: 12px; padding: 10px 12px; color: inherit; text-decoration: none; border-bottom: 1px solid rgba(255,255,255,0.06);';
-                            a.innerHTML = '<img src="' + getAvatarUrl(u.avatar_seed || u.username) + '" style="width:36px;height:36px;border-radius:50%;object-fit:cover;"><div><strong>' + escapeHtml(u.display_name || u.username) + '</strong><br><small style="color:#888">@' + escapeHtml(u.username) + '</small></div>';
-                            headerSearchResults.appendChild(a);
-                        });
-                        headerSearchResults.style.display = 'block';
-                    } else {
-                        headerSearchResults.innerHTML = '<div style="padding:12px;color:#888;">Никого не найдено</div>';
-                        headerSearchResults.style.display = 'block';
-                    }
-                } catch (e) {
-                    headerSearchResults.style.display = 'none';
-                }
-            }, 300);
-        });
-        document.addEventListener('click', (e) => {
-            if (!headerSearch.contains(e.target) && !headerSearchResults.contains(e.target))
-                headerSearchResults.style.display = 'none';
-        });
-    }
 });

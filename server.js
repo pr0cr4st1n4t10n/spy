@@ -18,6 +18,9 @@ const profileRoutes = require('./routes/profile');
 const leaderboardRoutes = require('./routes/leaderboard');
 const locationsRoutes = require('./routes/locations');
 const adminRoutes = require('./routes/admin');
+const messagesRoutes = require('./routes/messages');
+const clubsRoutes = require('./routes/clubs');
+const presence = require('./presence');
 
 // Конфигурация сервера
 const PORT = process.env.PORT || 3000;
@@ -56,6 +59,8 @@ app.use('/api/profile', profileRoutes);
 app.use('/api/leaderboard', leaderboardRoutes);
 app.use('/api/locations', locationsRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/messages', messagesRoutes);
+app.use('/api/clubs', clubsRoutes);
 
 // Создаем папки для загрузок
 const uploadsDir = path.join(__dirname, 'uploads');
@@ -98,6 +103,12 @@ app.get('/profile/:id?', (req, res) => {
 });
 app.get('/leaderboard', (req, res) => {
     res.sendFile(path.join(__dirname, 'leaderboard.html'));
+});
+app.get('/messages', (req, res) => {
+    res.sendFile(path.join(__dirname, 'messages.html'));
+});
+app.get('/clubs', (req, res) => {
+    res.sendFile(path.join(__dirname, 'clubs.html'));
 });
 app.get('/admin', (req, res) => {
     res.sendFile(path.join(__dirname, 'admin.html'));
@@ -156,6 +167,197 @@ function getRandomElement(arr) {
 // Socket.io обработчики
 io.on('connection', (socket) => {
     console.log('Новое подключение:', socket.id);
+
+    // ===== Messenger (личные сообщения) =====
+    // Клиент должен вызвать dm_register и передать свой userId.
+    function notifyFriendsOfPresenceChange(changedUserId, isOnline, lastSeen) {
+        const friendRows = db.prepare(`
+            SELECT CASE WHEN f.friend_id = ? THEN f.user_id ELSE f.friend_id END AS friend_id
+            FROM friends f
+            WHERE f.accepted = 1 AND (f.user_id = ? OR f.friend_id = ?)
+        `).all(changedUserId, changedUserId, changedUserId);
+
+        friendRows.forEach(r => {
+            const otherUserId = r.friend_id;
+            const otherSockets = presence.getSocketsByUserId(otherUserId);
+            if (!otherSockets.length) return;
+            otherSockets.forEach(sid => {
+                io.to(sid).emit('dm_presence_changed', {
+                    userId: changedUserId,
+                    isOnline: !!isOnline,
+                    lastSeen: lastSeen ?? null
+                });
+            });
+        });
+    }
+
+    socket.on('dm_register', (data) => {
+        try {
+            const userId = parseInt(data?.userId, 10);
+            if (!userId) {
+                socket.emit('dm_error', { message: 'Некорректный userId' });
+                return;
+            }
+
+            const user = db.prepare(`
+                SELECT id
+                FROM users
+                WHERE id = ?
+                  AND deleted_at IS NULL
+                  AND is_banned = 0
+            `).get(userId);
+
+            if (!user) {
+                socket.emit('dm_error', { message: 'Пользователь не найден/заблокирован' });
+                return;
+            }
+
+            socket.userId = userId;
+            const wentOnline = presence.addSocket(userId, socket.id);
+            socket.emit('dm_registered', { userId, online: true });
+
+            // Уведомляем друзей только при переходе offline -> online
+            if (wentOnline) {
+                notifyFriendsOfPresenceChange(userId, true, null);
+            }
+        } catch (err) {
+            console.error('dm_register error:', err);
+            socket.emit('dm_error', { message: 'Ошибка регистрации dm' });
+        }
+    });
+
+    socket.on('dm_send_message', (data) => {
+        try {
+            const fromUserId = socket.userId;
+            if (!fromUserId) {
+                socket.emit('dm_error', { message: 'Сначала выполните dm_register' });
+                return;
+            }
+
+            const toUserId = parseInt(data?.toUserId, 10);
+            const text = (data?.message || '').trim();
+            if (!toUserId || toUserId === fromUserId) {
+                socket.emit('dm_error', { message: 'Некорректный recipient' });
+                return;
+            }
+            if (!text || text.length > 500) {
+                socket.emit('dm_error', { message: 'Сообщение должно быть от 1 до 500 символов' });
+                return;
+            }
+
+            // Пишем только друзьям (принцип "чат друзей")
+            const isFriend = db.prepare(`
+                SELECT 1
+                FROM friends
+                WHERE accepted = 1
+                  AND ((user_id = ? AND friend_id = ?) OR (user_id = ? AND friend_id = ?))
+            `).get(fromUserId, toUserId, toUserId, fromUserId);
+
+            if (!isFriend) {
+                socket.emit('dm_error', { message: 'Вы можете писать только друзьям' });
+                return;
+            }
+
+            const [userA, userB] = fromUserId < toUserId ? [fromUserId, toUserId] : [toUserId, fromUserId];
+
+            let conv = db.prepare(`
+                SELECT id
+                FROM direct_conversations
+                WHERE user_a = ? AND user_b = ?
+            `).get(userA, userB);
+
+            if (!conv) {
+                const created = db.prepare(`
+                    INSERT INTO direct_conversations (user_a, user_b)
+                    VALUES (?, ?)
+                `).run(userA, userB);
+                conv = { id: created.lastInsertRowid };
+
+                // last_read_at ставим чуть раньше "сейчас", чтобы первое сообщение считалось непрочитанным.
+                db.prepare(`
+                    INSERT OR IGNORE INTO direct_message_reads (conversation_id, user_id, last_read_at)
+                    VALUES (?, ?, datetime('now','-1 second'))
+                `).run(conv.id, fromUserId);
+                db.prepare(`
+                    INSERT OR IGNORE INTO direct_message_reads (conversation_id, user_id, last_read_at)
+                    VALUES (?, ?, datetime('now','-1 second'))
+                `).run(conv.id, toUserId);
+            } else {
+                // На случай, если по старой схеме маркеры чтения ещё не создавались.
+                db.prepare(`
+                    INSERT OR IGNORE INTO direct_message_reads (conversation_id, user_id, last_read_at)
+                    VALUES (?, ?, datetime('now','-1 second'))
+                `).run(conv.id, fromUserId);
+                db.prepare(`
+                    INSERT OR IGNORE INTO direct_message_reads (conversation_id, user_id, last_read_at)
+                    VALUES (?, ?, datetime('now','-1 second'))
+                `).run(conv.id, toUserId);
+            }
+
+            const msgInsert = db.prepare(`
+                INSERT INTO direct_messages (conversation_id, sender_id, message)
+                VALUES (?, ?, ?)
+            `).run(conv.id, fromUserId, text);
+
+            const messageId = msgInsert.lastInsertRowid;
+
+            // Sender сразу помечается как "прочитано"
+            db.prepare(`
+                UPDATE direct_message_reads
+                SET last_read_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+                WHERE conversation_id = ? AND user_id = ?
+            `).run(conv.id, fromUserId);
+
+            const messageRow = db.prepare(`
+                SELECT
+                    dm.id,
+                    dm.conversation_id,
+                    dm.sender_id,
+                    dm.message,
+                    dm.created_at,
+                    u.display_name,
+                    u.username,
+                    u.avatar_seed
+                FROM direct_messages dm
+                JOIN users u ON u.id = dm.sender_id
+                WHERE dm.id = ?
+            `).get(messageId);
+
+            const payload = {
+                conversation_id: conv.id,
+                id: messageRow.id,
+                from_user_id: messageRow.sender_id,
+                to_user_id: toUserId,
+                message: messageRow.message,
+                created_at: messageRow.created_at,
+                sender_display_name: messageRow.display_name || messageRow.username,
+                sender_username: messageRow.username,
+                sender_avatar_seed: messageRow.avatar_seed || messageRow.username
+            };
+
+            // Отправляем в открытые сокеты отправителя
+            io.to(socket.id).emit('dm_new_message', payload);
+
+            // Отправляем в открытые сокеты получателя
+            presence.getSocketsByUserId(toUserId).forEach(sid => {
+                io.to(sid).emit('dm_new_message', payload);
+            });
+
+            // Уведомление (если получатель офлайн — всё равно покажется при открытии колокольчика)
+            try {
+                db.prepare(`
+                    INSERT INTO notifications (user_id, type, data)
+                    VALUES (?, ?, ?)
+                `).run(toUserId, 'dm_message', JSON.stringify({
+                    from_user_id: fromUserId,
+                    conversation_id: conv.id
+                }));
+            } catch (e) { /* ignore */ }
+        } catch (err) {
+            console.error('dm_send_message error:', err);
+            socket.emit('dm_error', { message: 'Ошибка отправки сообщения' });
+        }
+    });
     
     // Присоединение к комнате
     socket.on('join_room', (data) => {
@@ -1014,6 +1216,19 @@ io.on('connection', (socket) => {
     // Отключение игрока
     socket.on('disconnect', () => {
         console.log('Отключение:', socket.id);
+
+        // Presence (для мессенджера)
+        if (socket.userId) {
+            try {
+                const wentOffline = presence.removeSocket(socket.userId, socket.id);
+                if (wentOffline) {
+                    const p = presence.getPresence(socket.userId);
+                    notifyFriendsOfPresenceChange(socket.userId, false, p.lastSeen);
+                }
+            } catch (e) {
+                // ignore
+            }
+        }
         
         const player = players[socket.id];
         if (!player) return;
@@ -1235,6 +1450,56 @@ function endGame(room, spyWins) {
                         (wasSpy && !spyWins) || (!wasSpy && spyWins) ? 1 : 0,
                         newRating
                     );
+                }
+
+                // Обновляем клубную статистику участников (по всем клубам игрока)
+                try {
+                    const clubIds = db.prepare('SELECT club_id FROM club_members WHERE user_id = ? AND accepted = 1').all(player.userId).map(r => r.club_id);
+                    const wonAsSpy = wasSpy && spyWins;
+                    const wonAsCivilian = !wasSpy && !spyWins;
+                    const lost = (wasSpy && !spyWins) || (!wasSpy && spyWins);
+
+                    for (const clubId of clubIds) {
+                        const clubStats = db.prepare('SELECT * FROM club_member_stats WHERE club_id = ? AND user_id = ?').get(clubId, player.userId);
+                        const ratingBeforeClub = clubStats?.rating ?? 0;
+                        const newRatingClub = Math.max(0, ratingBeforeClub + delta);
+
+                        if (clubStats) {
+                            db.prepare(`
+                                UPDATE club_member_stats
+                                SET
+                                    games_played = games_played + 1,
+                                    games_won_as_spy = games_won_as_spy + ?,
+                                    games_won_as_civilian = games_won_as_civilian + ?,
+                                    games_lost = games_lost + ?,
+                                    rating = ?,
+                                    updated_at = CURRENT_TIMESTAMP
+                                WHERE club_id = ? AND user_id = ?
+                            `).run(
+                                wonAsSpy ? 1 : 0,
+                                wonAsCivilian ? 1 : 0,
+                                lost ? 1 : 0,
+                                newRatingClub,
+                                clubId,
+                                player.userId
+                            );
+                        } else {
+                            db.prepare(`
+                                INSERT INTO club_member_stats
+                                    (club_id, user_id, games_played, games_won_as_spy, games_won_as_civilian, games_lost, rating, updated_at)
+                                VALUES (?, ?, 1, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                            `).run(
+                                clubId,
+                                player.userId,
+                                wonAsSpy ? 1 : 0,
+                                wonAsCivilian ? 1 : 0,
+                                lost ? 1 : 0,
+                                newRatingClub
+                            );
+                        }
+                    }
+                } catch (e) {
+                    console.error('Ошибка club_member_stats update:', e);
                 }
 
                 // Сохраняем игру в историю для графиков/статистики

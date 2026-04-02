@@ -101,6 +101,84 @@ function initDatabase() {
         )
     `);
 
+    // Личные сообщения (диалоги)
+    db.exec(`
+        CREATE TABLE IF NOT EXISTS direct_conversations (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_a INTEGER NOT NULL,
+            user_b INTEGER NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_a) REFERENCES users(id),
+            FOREIGN KEY (user_b) REFERENCES users(id),
+            UNIQUE (user_a, user_b)
+        )
+    `);
+
+    db.exec(`
+        CREATE TABLE IF NOT EXISTS direct_messages (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            conversation_id INTEGER NOT NULL,
+            sender_id INTEGER NOT NULL,
+            message TEXT NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (conversation_id) REFERENCES direct_conversations(id),
+            FOREIGN KEY (sender_id) REFERENCES users(id)
+        )
+    `);
+
+    db.exec(`
+        CREATE TABLE IF NOT EXISTS direct_message_reads (
+            conversation_id INTEGER NOT NULL,
+            user_id INTEGER NOT NULL,
+            last_read_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (conversation_id, user_id),
+            FOREIGN KEY (conversation_id) REFERENCES direct_conversations(id),
+            FOREIGN KEY (user_id) REFERENCES users(id)
+        )
+    `);
+
+    // Клубы / команды
+    db.exec(`
+        CREATE TABLE IF NOT EXISTS clubs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL UNIQUE,
+            description TEXT,
+            created_by INTEGER NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (created_by) REFERENCES users(id)
+        )
+    `);
+
+    db.exec(`
+        CREATE TABLE IF NOT EXISTS club_members (
+            club_id INTEGER NOT NULL,
+            user_id INTEGER NOT NULL,
+            role TEXT NOT NULL DEFAULT 'member', -- 'owner' | 'member'
+            accepted INTEGER NOT NULL DEFAULT 1,
+            joined_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (club_id, user_id),
+            FOREIGN KEY (club_id) REFERENCES clubs(id),
+            FOREIGN KEY (user_id) REFERENCES users(id)
+        )
+    `);
+
+    db.exec(`
+        CREATE TABLE IF NOT EXISTS club_member_stats (
+            club_id INTEGER NOT NULL,
+            user_id INTEGER NOT NULL,
+            games_played INTEGER DEFAULT 0,
+            games_won_as_spy INTEGER DEFAULT 0,
+            games_won_as_civilian INTEGER DEFAULT 0,
+            games_lost INTEGER DEFAULT 0,
+            rating INTEGER DEFAULT 0,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (club_id, user_id),
+            FOREIGN KEY (club_id) REFERENCES clubs(id),
+            FOREIGN KEY (user_id) REFERENCES users(id)
+        )
+    `);
+
     // Достижения (справочник)
     db.exec(`
         CREATE TABLE IF NOT EXISTS achievements (
@@ -204,7 +282,14 @@ function initDatabase() {
         CREATE INDEX IF NOT EXISTS idx_comments_author ON profile_comments(author_user_id);
         CREATE INDEX IF NOT EXISTS idx_friends_user ON friends(user_id);
         CREATE INDEX IF NOT EXISTS idx_friends_friend ON friends(friend_id);
+        CREATE INDEX IF NOT EXISTS idx_direct_conversations_users ON direct_conversations(user_a, user_b);
+        CREATE INDEX IF NOT EXISTS idx_direct_messages_conversation ON direct_messages(conversation_id, created_at DESC);
+        CREATE INDEX IF NOT EXISTS idx_direct_message_reads_user ON direct_message_reads(user_id, conversation_id);
         CREATE INDEX IF NOT EXISTS idx_game_history_user ON game_history(user_id, played_at DESC);
+        CREATE INDEX IF NOT EXISTS idx_club_members_user ON club_members(user_id);
+        CREATE INDEX IF NOT EXISTS idx_club_members_club ON club_members(club_id);
+        CREATE INDEX IF NOT EXISTS idx_club_member_stats_club ON club_member_stats(club_id, rating DESC);
+        CREATE INDEX IF NOT EXISTS idx_clubs_created_by ON clubs(created_by);
     `);
 
     // Обновляем существующего пользователя admin до роли администратора (если он уже был создан ранее)

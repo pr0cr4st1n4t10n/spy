@@ -4,29 +4,44 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <base href="/">
-    <title>Рейтинг | Шпион - Онлайн-игра</title>
+    <title>Сообщения | Шпион - Онлайн-игра</title>
     <link rel="stylesheet" href="/styles.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&family=Roboto:wght@300;400;500&display=swap" rel="stylesheet">
     <style>
-        .leaderboard-page main { max-width: 900px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
-        .leaderboard-item { display: flex; align-items: center; gap: 20px; padding: 15px 20px; background: rgba(255,255,255,0.05); border-radius: 12px; margin-bottom: 12px; border: 1px solid rgba(255,255,255,0.1); }
-        .leaderboard-item.top1 { border-color: #ffd700; background: rgba(255,215,0,0.1); }
-        .leaderboard-item.top2 { border-color: #c0c0c0; background: rgba(192,192,192,0.1); }
-        .leaderboard-item.top3 { border-color: #cd7f32; background: rgba(205,127,50,0.1); }
-        .leaderboard-rank { font-size: 1.5rem; font-weight: 800; width: 40px; text-align: center; flex-shrink: 0; }
-        .leaderboard-avatar { width: 50px; height: 50px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
-        .leaderboard-club-icon { width: 50px; height: 50px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; background: rgba(77,184,255,0.18); color: #4db8ff; font-size: 1.2rem; border: 1px solid rgba(77,184,255,0.35); }
-        .leaderboard-name { flex: 1; font-weight: 600; min-width: 0; }
-        .leaderboard-name a { color: inherit; text-decoration: none; }
-        .leaderboard-name a:hover { text-decoration: underline; }
-        .leaderboard-rating { font-size: 1.2rem; color: #4db8ff; font-weight: 700; flex-shrink: 0; }
-        .leaderboard-stats { font-size: 0.9rem; color: #888; flex-shrink: 0; text-align: right; max-width: 140px; }
+        .messages-page main { max-width: 1100px; margin: 0 auto; }
+        .messages-layout { display:flex; gap: 16px; }
+        .messages-sidebar { width: 340px; min-width: 280px; }
+        .messages-card { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 14px; }
+        .conversation-item { display:flex; gap: 12px; align-items:center; padding: 10px 12px; border-radius: 12px; cursor:pointer; border: 1px solid rgba(255,255,255,0.06); background: rgba(255,255,255,0.03); }
+        .conversation-item:hover { background: rgba(77,184,255,0.12); border-color: rgba(77,184,255,0.35); }
+        .conversation-item.active { background: rgba(77,184,255,0.18); border-color: rgba(77,184,255,0.55); }
+        .conv-avatar { width: 44px; height: 44px; border-radius: 50%; object-fit: cover; border: 2px solid rgba(77,184,255,0.6); }
+        .conv-name { font-weight: 700; }
+        .presence-dot { width: 10px; height: 10px; border-radius: 50%; background: #555; margin-right: 8px; display:inline-block; }
+        .presence-dot.online { background: #4cd964; box-shadow: 0 0 0 6px rgba(76,217,100,0.12); }
+        .presence-dot.offline { background: #ff6b6b; box-shadow: 0 0 0 6px rgba(255,107,107,0.12); }
+        .unread-badge { background:#4db8ff; color:white; font-weight:700; font-size:0.8rem; padding: 2px 8px; border-radius: 999px; margin-left:auto; }
+        .messages-thread { flex:1; display:flex; flex-direction:column; min-width: 0; }
+        .messages-list { flex:1; overflow:auto; padding-right: 8px; }
+        .message-row { display:flex; align-items:flex-end; gap: 10px; margin: 10px 0; }
+        .message-row.me { flex-direction: row-reverse; }
+        .msg-avatar { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; flex-shrink: 0; border: 2px solid rgba(77,184,255,0.35); }
+        .bubble { max-width: 78%; padding: 10px 12px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.04); }
+        .message-row.me .bubble { background: rgba(77,184,255,0.16); border-color: rgba(77,184,255,0.35); }
+        .bubble small { color:#888; display:block; margin-top: 4px; }
+        .thread-footer { display:flex; gap: 10px; margin-top: 10px; }
+        .thread-footer input { flex:1; padding: 10px 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.05); color: inherit; }
+        .btn-send { padding: 10px 16px; border-radius: 10px; cursor:pointer; border: 2px solid rgba(77,184,255,0.45); background: rgba(77,184,255,0.14); color: white; font-weight: 800; }
+        .btn-send:disabled { opacity: 0.6; cursor:not-allowed; }
+        .muted { color:#888; }
+        .table { width:100%; border-collapse: collapse; }
+        .table th, .table td { text-align:left; padding: 8px 10px; border-bottom: 1px solid rgba(255,255,255,0.06); }
     </style>
 </head>
-<body class="dark-theme leaderboard-page">
+<body class="dark-theme">
     <div class="emoji-rain"></div>
-    <div class="container">
+    <div class="container messages-page">
         <header style="display: flex; align-items: center; gap: 15px; flex-wrap: wrap;">
             <h1><a href="/" style="color: inherit; text-decoration: none;"><i class="fas fa-user-secret"></i> ШПИОН</a></h1>
             <div class="header-search" style="flex: 1; max-width: 280px; position: relative;">
@@ -70,20 +85,36 @@
                 </div>
             </div>
         </header>
+
         <main>
-            <div class="card">
-                <h2><i class="fas fa-trophy"></i> Топ игроков</h2>
-                <div id="leaderboardList"></div>
-            </div>
-            <div class="card">
-                <h2><i class="fas fa-users"></i> Топ клубов по рейтингу</h2>
-                <p style="color: #888; font-size: 0.9rem; margin: 0 0 12px;">Рейтинг команды — сумма рейтингов участников клуба (как в статистике клуба).</p>
-                <div id="clubLeaderboardList"></div>
+            <div class="messages-layout">
+                <div class="messages-sidebar">
+                    <div class="messages-card">
+                        <h3 style="margin:0 0 12px;"><i class="fas fa-comments"></i> Диалоги</h3>
+                        <div id="conversationsList" style="display:flex;flex-direction:column;gap: 10px;">
+                            <div class="muted">Загрузка...</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="messages-thread messages-card">
+                    <div style="display:flex;align-items:center;justify-content:space-between;gap: 12px;margin-bottom: 10px;flex-wrap:wrap;">
+                        <div>
+                            <h3 style="margin:0;"><i class="fas fa-user"></i> Чат</h3>
+                            <div id="chatStatus" class="muted" style="margin-top: 4px;"></div>
+                        </div>
+                    </div>
+                    <div id="messagesList" class="messages-list">
+                        <div class="muted">Выберите друга для общения</div>
+                    </div>
+                    <div id="threadFooter" class="thread-footer">
+                        <input id="messageInput" type="text" maxlength="500" placeholder="Напишите сообщение..." disabled>
+                        <button id="sendBtn" class="btn-send" disabled><i class="fas fa-paper-plane"></i> Отправить</button>
+                    </div>
+                    <div id="threadError" class="muted" style="margin-top: 10px; color:#ff6b6b;"></div>
+                </div>
             </div>
         </main>
-        <footer>
-            <p>Игра "Шпион" | Рейтинг игроков и клубов</p>
-        </footer>
     </div>
 
     <div id="infoAboutSiteModal" class="modal">
@@ -106,75 +137,8 @@
 
     <script src="/header.js"></script>
     <script src="/site-header.js"></script>
-    <script>
-        function getAvatarUrl(seed) {
-            if (!seed) return 'https://api.dicebear.com/7.x/avataaars/svg?seed=default&backgroundColor=4db8ff';
-            const s = String(seed);
-            if (s.startsWith('/uploads/')) return s;
-            return 'https://api.dicebear.com/7.x/avataaars/svg?seed=' + encodeURIComponent(s) + '&backgroundColor=4db8ff';
-        }
-        function escapeHtml(t) { const d = document.createElement('div'); d.textContent = t; return d.innerHTML; }
-        async function loadLeaderboard() {
-            try {
-                const res = await fetch('/api/leaderboard');
-                const data = await res.json();
-                const list = document.getElementById('leaderboardList');
-                list.innerHTML = '';
-                (data.top || []).forEach((u, i) => {
-                    const div = document.createElement('div');
-                    div.className = 'leaderboard-item' + (i < 3 ? ' top' + (i + 1) : '');
-                    const name = u.display_name || u.username;
-                    div.innerHTML = `
-                        <span class="leaderboard-rank">${i + 1}</span>
-                        <img class="leaderboard-avatar" src="${getAvatarUrl(u.avatar_seed)}" alt="">
-                        <div class="leaderboard-name"><a href="/profile/${u.id}">${escapeHtml(name)}</a></div>
-                        <div class="leaderboard-rating">${u.rating ?? 0}</div>
-                        <div class="leaderboard-stats">${u.games_played || 0} игр, ${u.wins || 0} побед</div>
-                    `;
-                    list.appendChild(div);
-                });
-            } catch (e) {
-                document.getElementById('leaderboardList').innerHTML = '<p>Ошибка загрузки</p>';
-            }
-        }
-        async function loadClubLeaderboard() {
-            const list = document.getElementById('clubLeaderboardList');
-            if (!list) return;
-            try {
-                const res = await fetch('/api/leaderboard/clubs');
-                const data = await res.json();
-                list.innerHTML = '';
-                const clubs = data.clubs || [];
-                if (!clubs.length) {
-                    list.innerHTML = '<p style="color:#888;">Пока нет клубов с участниками</p>';
-                    return;
-                }
-                clubs.forEach((c, i) => {
-                    const div = document.createElement('div');
-                    div.className = 'leaderboard-item' + (i < 3 ? ' top' + (i + 1) : '');
-                    const rawDesc = (c.description || '').trim();
-                    const shortDesc = rawDesc.length > 80 ? rawDesc.slice(0, 80) + '…' : rawDesc;
-                    const desc = shortDesc ? escapeHtml(shortDesc) : '';
-                    div.innerHTML = `
-                        <span class="leaderboard-rank">${i + 1}</span>
-                        <div class="leaderboard-club-icon"><i class="fas fa-users"></i></div>
-                        <div class="leaderboard-name">
-                            <a href="/clubs">${escapeHtml(c.name)}</a>
-                            ${desc ? '<div style="font-size:0.85rem;color:#888;font-weight:400;margin-top:4px;">' + desc + '</div>' : ''}
-                        </div>
-                        <div class="leaderboard-rating">${c.team_rating ?? 0}</div>
-                        <div class="leaderboard-stats">${c.members_count || 0} уч.<br>${c.total_games || 0} игр</div>
-                    `;
-                    list.appendChild(div);
-                });
-            } catch (e) {
-                list.innerHTML = '<p>Ошибка загрузки клубов</p>';
-            }
-        }
-        document.addEventListener('DOMContentLoaded', () => {
-            loadLeaderboard();
-            loadClubLeaderboard();
-        });
-    </script>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="/messages.js"></script>
 </body>
 </html>
+

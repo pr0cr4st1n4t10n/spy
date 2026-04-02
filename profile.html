@@ -194,24 +194,29 @@
     <div class="container">
         <header style="display: flex; align-items: center; gap: 15px; flex-wrap: wrap;">
             <h1><a href="/" style="color: inherit; text-decoration: none;"><i class="fas fa-user-secret"></i> ШПИОН</a></h1>
-            <div class="header-search" style="flex: 1; max-width: 260px; position: relative;">
+            <div class="header-search" style="flex: 1; max-width: 280px; position: relative;">
                 <input type="text" id="headerSearch" placeholder="Поиск по юзернейму..." autocomplete="off" style="width: 100%; padding: 8px 12px 8px 36px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.08); color: inherit;">
-                <i class="fas fa-search" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #888;"></i>
-                <div id="headerSearchResults" class="search-results-dropdown" style="display: none; position: absolute; top: 100%; left: 0; right: 0; margin-top: 4px; background: rgba(30,40,50,0.98); border: 1px solid rgba(255,255,255,0.15); border-radius: 8px; max-height: 260px; overflow-y: auto; z-index: 1000;"></div>
+                <i class="fas fa-search" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #888; pointer-events: none;"></i>
+                <div id="headerSearchResults" class="search-results-dropdown" style="display: none; position: absolute; top: 100%; left: 0; right: 0; margin-top: 4px; background: rgba(30,40,50,0.98); border: 1px solid rgba(255,255,255,0.15); border-radius: 8px; max-height: 280px; overflow-y: auto; z-index: 1000;"></div>
             </div>
-            <div style="display: flex; gap: 20px; align-items: center;">
-                <div style="display: flex; gap: 15px; align-items: center;">
-                    <div id="notificationsWrap" style="position: relative;">
+            <div class="header-right" style="display: flex; align-items: center; gap: 20px;">
+                <div id="authLinks" style="display: flex; align-items: center; gap: 15px;">
+                    <div id="notificationsWrap" style="position: relative; display: none;">
                         <button id="notificationsBell" class="sound-toggle-btn" title="Уведомления">
                             <i class="fas fa-bell"></i>
                             <span id="notificationsBadge">0</span>
                         </button>
+                        <div id="notificationsDropdown" class="search-results-dropdown" style="display: none; position: absolute; top: 100%; right: 0; margin-top: 4px; min-width: 320px; max-height: 400px; overflow-y: auto; background: rgba(20, 25, 35, 0.98) !important; border: 1px solid rgba(255,255,255,0.2) !important; box-shadow: 0 4px 12px rgba(0,0,0,0.3) !important;"></div>
                     </div>
-                    <a href="/" style="color: #4db8ff; text-decoration: none;"><i class="fas fa-gamepad"></i> Играть</a>
+                    <a href="/login" id="loginLink" style="color: #4db8ff; text-decoration: none;"><i class="fas fa-sign-in-alt"></i> Войти</a>
+                    <a href="/profile" id="profileLink" style="color: #4db8ff; text-decoration: none; display: none;"><i class="fas fa-user" style="margin-right: 6px;"></i><span id="userDisplayName">Профиль</span></a>
+                    <a href="/leaderboard" style="color: #4db8ff; text-decoration: none;"><i class="fas fa-trophy"></i> Рейтинг</a>
+                    <a href="/messages" id="messagesLink" style="color: #4db8ff; text-decoration: none; display: none;"><i class="fas fa-comments"></i> Сообщения</a>
+                    <a href="/clubs" id="clubsLink" style="color: #4db8ff; text-decoration: none; display: none;"><i class="fas fa-users"></i> Клубы</a>
                     <a href="/admin" id="adminLink" style="color: #ffd700; text-decoration: none; display: none;"><i class="fas fa-shield-alt"></i> Админ‑панель</a>
-                    <span id="headerAuth"></span>
+                    <a href="#" id="logoutLink" style="color: #ff6b6b; text-decoration: none; display: none;">Выйти</a>
                 </div>
-                <div class="theme-toggle-container">
+                <div class="theme-toggle-container" style="margin-top: 4px;">
                     <button id="soundToggleBtn" class="sound-toggle-btn" title="Вкл/Выкл звуки">
                         <i class="fas fa-volume-up"></i>
                     </button>
@@ -223,6 +228,9 @@
                     <span class="theme-label">☀️</span>
                     <button id="emojiToggleBtn" class="emoji-toggle-btn" title="Вкл/Выкл падающие эмодзи">
                         <i class="fas fa-cloud-moon"></i>
+                    </button>
+                    <button id="infoAboutSiteBtn" class="sound-toggle-btn" title="О сайте и игре">
+                        <i class="fas fa-info-circle"></i>
                     </button>
                 </div>
             </div>
@@ -359,7 +367,26 @@
         </div>
     </div>
 
+    <div id="infoAboutSiteModal" class="modal">
+        <div class="modal-content" style="max-width: 500px;">
+            <h2><i class="fas fa-info-circle"></i> О сайте и игре</h2>
+            <div class="modal-body" style="text-align: left;">
+                <p><strong>Суть игры «Угадай шпиона»:</strong></p>
+                <p>Все игроки попадают на одну и ту же локацию, кроме одного — шпиона. Мирные жители знают локацию и задают друг другу вопросы, чтобы вычислить шпиона. Шпион не знает локацию и пытается не выдать себя. Игра заканчивается, когда шпиона вычислили (и он не угадал локацию) или шпион угадал локацию.</p>
+                <p style="margin-top: 12px;"><strong>Кнопки в шапке:</strong></p>
+                <ul style="margin: 8px 0 0 16px;">
+                    <li><i class="fas fa-sun"></i> / <i class="fas fa-moon"></i> — смена оформления (светлая/тёмная тема)</li>
+                    <li><i class="fas fa-volume-up"></i> — включение/отключение звуков игры</li>
+                    <li><i class="fas fa-cloud-moon"></i> — включение/отключение падающих эмодзи на фоне</li>
+                    <li><i class="fas fa-info-circle"></i> — эта подсказка</li>
+                </ul>
+            </div>
+            <button id="closeInfoAboutSiteBtn" class="btn-secondary">Закрыть</button>
+        </div>
+    </div>
+
     <script src="/header.js"></script>
+    <script src="/site-header.js"></script>
     <script src="/profile.js"></script>
 </body>
 </html>

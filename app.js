@@ -166,11 +166,15 @@ document.addEventListener('DOMContentLoaded', async function () {
             const logoutLink = document.getElementById('logoutLink');
             const userDisplayName = document.getElementById('userDisplayName');
             const adminLink = document.getElementById('adminLink');
+            const messagesLink = document.getElementById('messagesLink');
+            const clubsLink = document.getElementById('clubsLink');
             if (loginLink) loginLink.style.display = 'none';
             if (profileLink) {
                 profileLink.href = '/profile/' + data.user.id;
                 profileLink.style.display = 'inline-flex';
             }
+            if (messagesLink) messagesLink.style.display = 'inline-flex';
+            if (clubsLink) clubsLink.style.display = 'inline-flex';
             if (userDisplayName) userDisplayName.textContent = data.user.display_name || data.user.username;
             if (adminLink && data.user.is_admin) {
                 adminLink.style.display = 'inline';
@@ -236,9 +240,13 @@ document.addEventListener('DOMContentLoaded', async function () {
                                     msg = ' приглашает вас в игру';
                                     const roomCode = n.data.room_code || '';
                                     actions = `<button class="accept-invite-btn" data-room-code="${roomCode}" style="background:#4cd964;border:none;color:white;padding:4px 8px;border-radius:4px;cursor:pointer;font-size:0.85rem;">Принять</button>`;
+                                } else if (n.type === 'dm_message') {
+                                    msg = ' написал вам в чат';
                                 }
                                 const from = n.from_name ? escapeHtmlForDisplay(n.from_name) : 'Кто-то';
-                                const link = (n.data && n.data.from_user_id) ? '/profile/' + n.data.from_user_id : '#';
+                                const link = (n.type === 'dm_message' && n.data && n.data.from_user_id)
+                                    ? ('/messages?friend_id=' + n.data.from_user_id)
+                                    : ((n.data && n.data.from_user_id) ? '/profile/' + n.data.from_user_id : '#');
                                 const bgColor = n.read_at ? 'rgba(255,255,255,0.02)' : 'rgba(77,184,255,0.1)';
                                 html += `<div style="display:flex;align-items:center;padding:10px 12px;background:${bgColor};border-bottom:1px solid rgba(255,255,255,0.06);" data-notif-id="${n.id}">
                                     <a href="${link}" style="flex:1;color:inherit;text-decoration:none;" data-id="${n.id}">
