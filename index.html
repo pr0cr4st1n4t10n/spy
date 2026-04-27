@@ -368,8 +368,28 @@
             <h2>Голосование</h2>
             <div class="modal-body">
                 <p id="voteDescription">Проголосуйте за игрока, который, по вашему мнению, является шпионом:</p>
+                <div id="voteProgressCounter" style="margin: 10px 0; padding: 10px 16px; background: rgba(77,184,255,0.15); border: 1px solid rgba(77,184,255,0.3); border-radius: 10px; text-align: center; font-weight: 600; font-size: 1rem; display: none;">
+                    <i class="fas fa-check-circle" style="margin-right: 6px; color: #4db8ff;"></i>
+                    Проголосовало: <span id="voteProgressVoted">0</span>/<span id="voteProgressTotal">0</span>
+                </div>
                 <div class="player-options" id="votePlayerOptions">
                     <!-- Варианты для голосования будут добавляться динамически -->
+                </div>
+                <div class="form-group" style="margin-top: 12px;">
+                    <label for="voteCommentInput">Комментарий к голосу (почему вы голосуете именно так)</label>
+                    <textarea id="voteCommentInput" rows="2" placeholder="Например: ответы были слишком расплывчаты..."></textarea>
+                    <label style="display:flex;align-items:center;gap:8px;margin-top:8px;font-size:0.95rem;">
+                        <input type="checkbox" id="skipVoteComment" style="width:auto;">
+                        Пропустить комментарий
+                    </label>
+                </div>
+                <div style="margin-top: 14px;">
+                    <p style="margin-bottom: 8px;"><strong>Обсуждение перед вердиктом</strong></p>
+                    <div id="voteChatMessages" class="chat-messages" style="height: 180px; border: 1px solid rgba(255,255,255,0.15); border-radius: 10px; padding: 10px;"></div>
+                    <div class="chat-input" style="margin-top: 8px; padding: 8px 0 0 0; border-top: none; background: transparent;">
+                        <input id="voteChatInput" type="text" maxlength="280" placeholder="Напишите сообщение в обсуждение голосования..." />
+                        <button id="sendVoteChatMessage" type="button" title="Отправить"><i class="fas fa-paper-plane"></i></button>
+                    </div>
                 </div>
             </div>
             <button id="submitVote" class="btn-primary">Проголосовать</button>
@@ -436,17 +456,63 @@
 
     <!-- Модальное окно "О сайте" -->
     <div id="infoAboutSiteModal" class="modal">
-        <div class="modal-content" style="max-width: 500px;">
+        <div class="modal-content" style="max-width: 760px;">
             <h2><i class="fas fa-info-circle"></i> О сайте и игре</h2>
             <div class="modal-body" style="text-align: left;">
-                <p><strong>Суть игры «Угадай шпиона»:</strong></p>
-                <p>Все игроки попадают на одну и ту же локацию, кроме одного — шпиона. Мирные жители знают локацию и задают друг другу вопросы, чтобы вычислить шпиона. Шпион не знает локацию и пытается не выдать себя. Игра заканчивается, когда шпиона вычислили (и он не угадал локацию) или шпион угадал локацию.</p>
+                <p><strong>Добро пожаловать!</strong> Этот сайт — онлайн-версия настольной игры «Шпион». Она подходит даже тем, кто никогда не играл в подобные игры: все кнопки простые, а шаги идут по очереди.</p>
+
+                <p style="margin-top: 12px;"><strong>Что здесь вообще происходит:</strong></p>
+                <ul style="margin: 8px 0 0 16px;">
+                    <li>Все игроки попадают в одну комнату и начинают раунд.</li>
+                    <li>Почти все получают одну и ту же локацию (например, «Пляж» или «Ресторан»).</li>
+                    <li>Один игрок получает роль <strong>шпиона</strong> и локацию не видит.</li>
+                    <li>Игроки задают друг другу вопросы и отвечают так, чтобы не выдать лишнего.</li>
+                    <li>Задача мирных — вычислить шпиона. Задача шпиона — не спалиться и/или угадать локацию.</li>
+                </ul>
+
+                <p style="margin-top: 12px;"><strong>Как начать, если вы впервые:</strong></p>
+                <ol style="margin: 8px 0 0 18px;">
+                    <li>Введите имя и нажмите «Создать комнату» (если вы организатор) или «Присоединиться» (если вам дали код комнаты).</li>
+                    <li>Если вы хост, дождитесь минимум 3 игроков и нажмите «Начать игру».</li>
+                    <li>Читайте подсказки на экране: игра сама подсказывает, чей сейчас ход и что нужно сделать.</li>
+                    <li>Во время своего хода выберите игрока, задайте вопрос или ответьте в появившемся окне.</li>
+                    <li>Когда появится голосование — выберите, кто, по вашему мнению, шпион.</li>
+                </ol>
+
+                <p style="margin-top: 12px;"><strong>Примеры безопасных вопросов (без раскрытия локации):</strong></p>
+                <ul style="margin: 8px 0 0 16px;">
+                    <li>«Что здесь обычно делают в первую очередь?»</li>
+                    <li>«Какое время суток здесь, на твой взгляд, самое активное?»</li>
+                    <li>«Как бы ты описал атмосферу этого места одним словом?»</li>
+                </ul>
+
+                <p style="margin-top: 12px;"><strong>Чего лучше не делать:</strong></p>
+                <ul style="margin: 8px 0 0 16px;">
+                    <li>Не называйте локацию напрямую в вопросах и ответах.</li>
+                    <li>Не задавайте слишком очевидные вопросы вроде «Какой здесь официант?».</li>
+                    <li>Не игнорируйте таймер: если время выйдет, ход будет считаться пропущенным.</li>
+                </ul>
+
+                <p style="margin-top: 12px;"><strong>Про AI-ботов:</strong></p>
+                <ul style="margin: 8px 0 0 16px;">
+                    <li>Хост может добавить AI-ботов в лобби через отдельную плашку с плюсом.</li>
+                    <li>Боты участвуют как обычные игроки: задают вопросы, отвечают и голосуют.</li>
+                    <li>Боты специально отвечают с задержкой, чтобы игра ощущалась естественнее.</li>
+                </ul>
+
+                <p style="margin-top: 12px;"><strong>Если что-то не работает:</strong></p>
+                <ul style="margin: 8px 0 0 16px;">
+                    <li>Обновите страницу и заново войдите в комнату по коду.</li>
+                    <li>Проверьте интернет: при нестабильной сети можно пропустить сообщения.</li>
+                    <li>Если пропал звук — проверьте кнопку с иконкой динамика в шапке.</li>
+                </ul>
+
                 <p style="margin-top: 12px;"><strong>Кнопки в шапке:</strong></p>
                 <ul style="margin: 8px 0 0 16px;">
                     <li><i class="fas fa-sun"></i> / <i class="fas fa-moon"></i> — смена оформления (светлая/тёмная тема)</li>
                     <li><i class="fas fa-volume-up"></i> — включение/отключение звуков игры</li>
                     <li><i class="fas fa-cloud-moon"></i> — включение/отключение падающих эмодзи на фоне</li>
-                    <li><i class="fas fa-info-circle"></i> — эта подсказка</li>
+                    <li><i class="fas fa-info-circle"></i> — открывает эту подробную справку</li>
                 </ul>
             </div>
             <button id="closeInfoAboutSiteBtn" class="btn-secondary">Закрыть</button>

@@ -1048,6 +1048,100 @@ button:disabled {
     font-size: 0.9rem;
 }
 
+.ai-add-btn {
+    background: rgba(77, 184, 255, 0.25);
+    border: none;
+    color: #4db8ff;
+    cursor: pointer;
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+    opacity: 0;
+    transform: scale(0.8);
+}
+
+.players-list li:hover .ai-add-btn {
+    opacity: 1;
+    transform: scale(1);
+}
+
+.ai-add-btn:hover {
+    background: rgba(77, 184, 255, 0.45);
+    transform: scale(1.1) !important;
+}
+
+.ai-add-btn i {
+    font-size: 0.9rem;
+}
+
+.ai-add-inline-btn {
+    opacity: 1;
+    transform: scale(1);
+    width: 28px;
+    height: 28px;
+    border-radius: 999px;
+    margin-left: 2px;
+    flex-shrink: 0;
+}
+
+.ai-bot-add-card {
+    padding: 0 !important;
+    border-left: 4px solid #4db8ff !important;
+}
+
+.ai-bot-add-tile {
+    width: 100%;
+    min-height: 74px;
+    border: 0;
+    border-radius: 12px;
+    background: transparent;
+    color: inherit;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 16px;
+    cursor: pointer;
+}
+
+.ai-bot-add-text {
+    font-weight: 600;
+    text-align: left;
+}
+
+.ai-bot-add-plus {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(77, 184, 255, 0.25);
+    color: #4db8ff;
+}
+
+.ai-bot-add-tile:hover .ai-bot-add-plus {
+    background: rgba(77, 184, 255, 0.45);
+}
+
+.ai-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: 6px;
+    padding: 1px 6px;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #4db8ff;
+    background: rgba(77, 184, 255, 0.15);
+    border: 1px solid rgba(77, 184, 255, 0.35);
+    vertical-align: middle;
+}
+
 /* Экран игры */
 .game-header {
     display: flex;
@@ -1499,6 +1593,12 @@ button:disabled {
     color: white;
     box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
     border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+#voteModal .modal-content,
+#questionModal .modal-content,
+#answerModal .modal-content {
+    max-width: 700px;
 }
 
 .modal-body {

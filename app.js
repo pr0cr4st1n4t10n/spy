@@ -108,6 +108,11 @@ const voteDescription = document.getElementById('voteDescription');
 const votePlayerOptions = document.getElementById('votePlayerOptions');
 const submitVoteBtn = document.getElementById('submitVote');
 const cancelVoteBtn = document.getElementById('cancelVote');
+const voteCommentInput = document.getElementById('voteCommentInput');
+const skipVoteCommentCheckbox = document.getElementById('skipVoteComment');
+const voteChatMessages = document.getElementById('voteChatMessages');
+const voteChatInput = document.getElementById('voteChatInput');
+const sendVoteChatMessageBtn = document.getElementById('sendVoteChatMessage');
 
 const spyGuessModal = document.getElementById('spyGuessModal');
 const spyGuessOptionsContainer = document.getElementById('spyGuessOptions');
@@ -724,6 +729,17 @@ function setupEventListeners() {
 
     // Модальное окно голосования
     submitVoteBtn.addEventListener('click', submitVote);
+    if (sendVoteChatMessageBtn) {
+        sendVoteChatMessageBtn.addEventListener('click', sendVoteChatMessage);
+    }
+    if (voteChatInput) {
+        voteChatInput.addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                sendVoteChatMessage();
+            }
+        });
+    }
     cancelVoteBtn.addEventListener('click', function () {
         playSound('button');
         closeAllModals();
@@ -991,6 +1007,7 @@ function setupSocketListeners() {
 
     // Вопрос задан (для чата)
     socket.on('question_asked_chat', function (data) {
+        if (currentTimerType === 'vote') return;
         // Добавляем вопрос в чат
         const isMyQuestion = data.askerId === playerId;
         addChatMessage(data.askerName, `задает вопрос игроку ${data.targetName}: "${data.question}"`, isMyQuestion, data.askerAvatarSeed);
@@ -1018,6 +1035,7 @@ function setupSocketListeners() {
 
     // Ответ получен (для чата)
     socket.on('answer_received_chat', function (data) {
+        if (currentTimerType === 'vote') return;
         // Добавляем ответ в чат
         const isMyAnswer = data.answererName === playerName;
         addChatMessage(data.answererName, `отвечает на вопрос "${data.question}" от ${data.askerName}: "${data.answer}"`, isMyAnswer, data.answererAvatarSeed);
@@ -1092,6 +1110,29 @@ function setupSocketListeners() {
 
         // Сбрасываем таймер
         startTimer(60);
+    });
+
+    socket.on('vote_chat_history', function (data) {
+        if (!voteChatMessages) return;
+        voteChatMessages.innerHTML = '';
+        const messages = Array.isArray(data?.messages) ? data.messages : [];
+        messages.forEach(renderVoteChatMessage);
+    });
+
+    socket.on('vote_chat_message', function (data) {
+        renderVoteChatMessage(data);
+    });
+
+    // Прогресс голосования (мини-счётчик)
+    socket.on('vote_progress', function (data) {
+        const counter = document.getElementById('voteProgressCounter');
+        const votedEl = document.getElementById('voteProgressVoted');
+        const totalEl = document.getElementById('voteProgressTotal');
+        if (counter && votedEl && totalEl) {
+            votedEl.textContent = data.voted;
+            totalEl.textContent = data.total;
+            counter.style.display = 'block';
+        }
     });
 
     // Список игроков для голосования
@@ -1590,6 +1631,14 @@ function submitAnswer() {
 function showVoteModal() {
     voteDescription.textContent = 'Проголосуйте за игрока, который, по вашему мнению, является шпионом:';
     votePlayerOptions.innerHTML = '';
+    if (voteCommentInput) voteCommentInput.value = '';
+    if (skipVoteCommentCheckbox) skipVoteCommentCheckbox.checked = false;
+    if (voteChatMessages) voteChatMessages.innerHTML = '';
+    if (voteChatInput) voteChatInput.value = '';
+
+    // Сбрасываем счётчик голосования
+    const voteProgressCounter = document.getElementById('voteProgressCounter');
+    if (voteProgressCounter) voteProgressCounter.style.display = 'none';
 
     // Добавляем подсказку с локацией для не-шпиона
     if (playerRole !== 'spy' && currentLocation) {
@@ -1647,9 +1696,14 @@ function submitVote() {
         return;
     }
 
+    const comment = (voteCommentInput?.value || '').trim();
+    const skipComment = !!skipVoteCommentCheckbox?.checked;
+
     socket.emit('submit_vote', {
         roomCode: roomCode,
-        votedPlayerId: selectedPlayerForVote
+        votedPlayerId: selectedPlayerForVote,
+        comment,
+        skipComment
     });
 
     voteModal.classList.remove('active');
@@ -1657,6 +1711,31 @@ function submitVote() {
 
     // Сбрасываем таймер
     startTimer(60);
+}
+
+function sendVoteChatMessage() {
+    const message = (voteChatInput?.value || '').trim();
+    if (!message || currentTimerType !== 'vote') return;
+    socket.emit('send_vote_chat_message', {
+        roomCode: roomCode,
+        message
+    });
+    voteChatInput.value = '';
+}
+
+function renderVoteChatMessage(data) {
+    if (!voteChatMessages || !data) return;
+    const sender = escapeHtmlForDisplay(data.sender || 'Система');
+    const text = escapeHtmlForDisplay(data.text || '');
+    const row = document.createElement('div');
+    row.style.padding = '8px 10px';
+    row.style.borderRadius = '8px';
+    row.style.marginBottom = '6px';
+    row.style.background = data.isVoteLog ? 'rgba(77, 184, 255, 0.12)' : (data.isSystem ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.04)');
+    row.style.border = '1px solid rgba(255,255,255,0.08)';
+    row.innerHTML = `<strong>${sender}:</strong> ${text}`;
+    voteChatMessages.appendChild(row);
+    voteChatMessages.scrollTop = voteChatMessages.scrollHeight;
 }
 
 // Функция показа модального окна для угадывания локации шпионом
@@ -1700,8 +1779,23 @@ function kickPlayer(playerId, playerName) {
     }
 }
 
+function addAiBotNearPlayer(playerId) {
+    socket.emit('add_ai_bot', {
+        roomCode: roomCode,
+        basedOnPlayerId: playerId
+    });
+}
+
+function addAiBot() {
+    socket.emit('add_ai_bot', {
+        roomCode: roomCode
+    });
+}
+
 // Функция закрытия всех модальных окон
 function closeAllModals() {
+    const keepSpyGuessOpen = spyGuessModal.classList.contains('active') && currentTimerType !== 'vote';
+    const keepVoteOpen = currentTimerType === 'vote' && voteModal.classList.contains('active');
     const modals = [
         playerSelectModal,
         questionModal,
@@ -1713,6 +1807,8 @@ function closeAllModals() {
     ];
 
     modals.forEach(modal => {
+        if (keepSpyGuessOpen && modal === spyGuessModal) return;
+        if (keepVoteOpen && modal === voteModal) return;
         modal.classList.remove('active');
     });
 
@@ -1788,7 +1884,8 @@ function updatePlayersList(players) {
     players.forEach(player => {
         const li = document.createElement('li');
 
-        const guestBadge = !player.userId ? ' <span class="guest-badge" title="Не авторизован">(гость)</span>' : '';
+        const guestBadge = !player.userId && !player.isBot ? ' <span class="guest-badge" title="Не авторизован">(гость)</span>' : '';
+        const botBadge = player.isBot ? ' <span class="ai-badge" title="AI-бот">AI</span>' : '';
         const avatarUrl = player.avatarSeed ? getAvatarUrl(player.avatarSeed) : getAvatarUrl(player.name);
         const nameDisplay = player.userId
             ? `<a href="/profile/${player.userId}" target="_blank" rel="noopener" style="color: inherit; text-decoration: none; font-weight: 600;">${escapeHtmlForDisplay(player.name)}</a>`
@@ -1797,26 +1894,46 @@ function updatePlayersList(players) {
             <div class="player-info" style="display: flex; align-items: center; gap: 10px;">
                 <img src="${avatarUrl}" alt="" style="width: 32px; height: 32px; border-radius: 50%; object-fit: cover; flex-shrink: 0;">
                 <div style="flex: 1;">
-                    ${nameDisplay}${guestBadge}
+                    ${nameDisplay}${guestBadge}${botBadge}
                     ${player.isHost ? '<i class="fas fa-crown" title="Хост" style="margin-left: 5px;"></i>' : ''}
                 </div>
             </div>
         `;
 
-        // Добавляем кнопку исключения для хоста
-        if (isHost && player.id !== playerId) {
+        // Добавляем кнопки действий для хоста
+        if (isHost) {
             playerContent += `
                 <div class="player-actions">
+            `;
+        }
+
+        if (isHost && player.id !== playerId) {
+            playerContent += `
                     <button class="kick-btn" onclick="kickPlayer('${player.id}', '${player.name}')" title="Исключить">
                         <i class="fas fa-times"></i>
                     </button>
-                </div>
             `;
+        }
+
+        if (isHost) {
+            playerContent += `</div>`;
         }
 
         li.innerHTML = playerContent;
         playersList.appendChild(li);
     });
+
+    if (isHost) {
+        const addBotLi = document.createElement('li');
+        addBotLi.className = 'ai-bot-add-card';
+        addBotLi.innerHTML = `
+            <button class="ai-bot-add-tile" onclick="addAiBot()" title="Добавить AI-бота">
+                <span class="ai-bot-add-text">Добавить AI-бота</span>
+                <span class="ai-bot-add-plus"><i class="fas fa-plus"></i></span>
+            </button>
+        `;
+        playersList.appendChild(addBotLi);
+    }
 
     // Обновляем список игроков в игре
     gamePlayersList.innerHTML = '';
@@ -1825,14 +1942,15 @@ function updatePlayersList(players) {
         const li = document.createElement('li');
         li.className = 'online';
         li.dataset.playerId = player.id;
-        const guestBadge = !player.userId ? ' <span class="guest-badge">(гость)</span>' : '';
+        const guestBadge = !player.userId && !player.isBot ? ' <span class="guest-badge">(гость)</span>' : '';
+        const botBadge = player.isBot ? ' <span class="ai-badge">AI</span>' : '';
         const avatarUrl = player.avatarSeed ? getAvatarUrl(player.avatarSeed) : getAvatarUrl(player.name);
         const namePart = player.userId
             ? `<a href="/profile/${player.userId}" target="_blank" rel="noopener" style="color: inherit; text-decoration: none; font-weight: 600;">${escapeHtmlForDisplay(player.name)}</a>`
             : `<span>${escapeHtmlForDisplay(player.name)}</span>`;
         li.innerHTML = `
             <img src="${avatarUrl}" alt="" style="width: 24px; height: 24px; border-radius: 50%; object-fit: cover; margin-right: 8px; flex-shrink: 0;">
-            ${namePart}${guestBadge}
+            ${namePart}${guestBadge}${botBadge}
             ${player.isHost ? '<i class="fas fa-crown" style="margin-left: 5px;"></i>' : ''}
         `;
         li.style.display = 'flex';
@@ -2193,8 +2311,14 @@ function showFinalResults(data) {
             </div>
             <div class="result-item" style="text-align: center; margin-bottom: 15px; display: flex; justify-content: center; align-items: center;">
                 <i class="fas fa-map-marker-alt" style="margin-right: 10px;"></i>
-                <span>Локация: <img id="finalLocationAvatar" src="" alt="" style="width: 24px; height: 24px; border-radius: 4px; object-fit: cover; vertical-align: middle; margin: 0 6px; display: none;" onerror="this.style.display='none'"> <strong style="font-size: 1.2rem;">${data.location}</strong></span>
+                <span>Правильная локация: <img id="finalLocationAvatar" src="" alt="" style="width: 24px; height: 24px; border-radius: 4px; object-fit: cover; vertical-align: middle; margin: 0 6px; display: none;" onerror="this.style.display='none'"> <strong style="font-size: 1.2rem;">${data.location}</strong></span>
             </div>
+            ${data.spyGuess ? `
+            <div class="result-item" style="text-align: center; margin-bottom: 15px; display: flex; justify-content: center; align-items: center;">
+                <i class="fas fa-question-circle" style="margin-right: 10px; color: #f39c12;"></i>
+                <span>Шпион предполагал: <strong style="font-size: 1.2rem; color: #f39c12;">${data.spyGuess}</strong></span>
+            </div>
+            ` : ''}
             <div class="result-item" style="text-align: center; margin-bottom: 30px; display: flex; justify-content: center; align-items: center;">
                 <i class="fas fa-user-secret" style="margin-right: 10px;"></i>
                 <span>Шпион: <strong style="font-size: 1.2rem;">${data.spyName}</strong></span>
@@ -2218,6 +2342,7 @@ function showFinalResults(data) {
         }
     })();
 
+    finalResultsModal.style.display = '';
     finalResultsModal.classList.add('active');
 }
 

@@ -1,3 +1,5 @@
+require('dotenv').config();
+
 const express = require('express');
 const http = require('http');
 const socketIo = require('socket.io');
@@ -21,6 +23,7 @@ const adminRoutes = require('./routes/admin');
 const messagesRoutes = require('./routes/messages');
 const clubsRoutes = require('./routes/clubs');
 const presence = require('./presence');
+const { completeAsHumanLike } = require('./openrouter');
 
 // Конфигурация сервера
 const PORT = process.env.PORT || 3000;
@@ -162,6 +165,132 @@ function generateRoomCode() {
 // Получение случайного элемента из массива
 function getRandomElement(arr) {
     return arr[Math.floor(Math.random() * arr.length)];
+}
+
+function getRoomPlayer(room, playerId) {
+    if (!room || !playerId) return null;
+    return room.players.find(p => p.id === playerId) || null;
+}
+
+function createBotPlayer(roomCode, botName = 'AI Бот') {
+    const botId = `bot_${Date.now()}_${Math.floor(Math.random() * 100000)}`;
+    return {
+        id: botId,
+        name: botName.slice(0, 32),
+        roomCode,
+        isHost: false,
+        role: null,
+        isSpy: false,
+        hasBeenAsked: false,
+        hasAsked: false,
+        userId: null,
+        avatarSeed: `ai-${botId}`,
+        isBot: true
+    };
+}
+
+function cleanBotText(text, fallback) {
+    const safe = (text || '').toString().trim().replace(/\s+/g, ' ');
+    if (!safe) return fallback;
+    return safe.length > 220 ? `${safe.slice(0, 217)}...` : safe;
+}
+
+function getRecentQuestionHistory(room, limit = 8) {
+    if (!room || !Array.isArray(room.questionChain)) return [];
+    return room.questionChain.slice(-limit).map((entry) => ({
+        asker: entry.asker || '',
+        answerer: entry.answerer || '',
+        question: entry.question || '',
+        answer: entry.answer || ''
+    }));
+}
+
+function getBotActionDelay(minMs = 3600, maxMs = 7000) {
+    const min = Math.max(0, Number(minMs) || 0);
+    const max = Math.max(min, Number(maxMs) || min);
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+function wait(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function createVoteComment(voterName, targetName) {
+    const templates = [
+        `${targetName} отвечает слишком расплывчато.`,
+        `Мне кажется, ${targetName} путается в деталях.`,
+        `${targetName} звучит неуверенно в ответах.`,
+        `По ощущениям, ${targetName} меньше всех понимает контекст.`,
+        `Голосую за ${targetName}, потому что ответы выглядят неестественно.`
+    ];
+    return getRandomElement(templates).replace(voterName, '').trim();
+}
+
+function emitVoteChatMessage(roomCode, payload) {
+    io.to(roomCode).emit('vote_chat_message', {
+        sender: payload.sender || 'Система',
+        senderId: payload.senderId || null,
+        text: payload.text || '',
+        isSystem: !!payload.isSystem,
+        isVoteLog: !!payload.isVoteLog,
+        createdAt: Date.now()
+    });
+}
+
+function emitVoteProgress(room) {
+    if (!room) return;
+    const voted = Object.keys(room.votes).length;
+    const total = room.players.length;
+    io.to(room.code).emit('vote_progress', { voted, total });
+}
+
+function escapeRegex(value) {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function sanitizeBotLocationMentions(text, room) {
+    if (!text || !room || !Array.isArray(room.locations)) return text;
+    let safe = text;
+    const uniqueLocations = [...new Set(room.locations.filter(Boolean).map((loc) => String(loc).trim()))]
+        .filter(Boolean)
+        .sort((a, b) => b.length - a.length);
+    uniqueLocations.forEach((loc) => {
+        const regex = new RegExp(`\\b${escapeRegex(loc)}\\b`, 'gi');
+        safe = safe.replace(regex, 'это место');
+    });
+    return safe;
+}
+
+function normalizeBotQuestionForSpyGame(text) {
+    const genericTriggers = [
+        'любой ситуации',
+        'по жизни',
+        'в жизни',
+        'важным элементом',
+        'что для тебя важно',
+        'какой твой любимый',
+        'как ты считаешь'
+    ];
+    const fallbackQuestions = [
+        'Когда ты оказываешься в таком месте, что обычно делаешь в первые минуты?',
+        'Какой признак в поведении людей здесь ты считаешь самым типичным?',
+        'Что здесь обычно происходит быстрее, чем ожидаешь?',
+        'Как понять по ответу человека, что он действительно бывал в таком месте?'
+    ];
+
+    let normalized = (text || '').toString().trim().replace(/\s+/g, ' ');
+    if (!normalized) return getRandomElement(fallbackQuestions);
+
+    const lower = normalized.toLowerCase();
+    const isGeneric = genericTriggers.some((trigger) => lower.includes(trigger));
+    if (isGeneric) {
+        return getRandomElement(fallbackQuestions);
+    }
+
+    if (!normalized.endsWith('?')) {
+        normalized = `${normalized}?`;
+    }
+    return normalized;
 }
 
 // Socket.io обработчики
@@ -504,11 +633,15 @@ io.on('connection', (socket) => {
             currentQuestion: null,
             askedPlayers: new Set(),
             earlyVoteRequests: 0,
+            earlyVoteBotBoosted: false,
             questionChain: [],
             spyGuessedLocation: false,
             spyGuessing: false,
             spyGuessOptions: [],
-            gameEnded: false
+            gameEnded: false,
+            isVotingActive: false,
+            voteResolutionPending: false,
+            voteChatMessages: []
         };
         
         const player = {
@@ -537,6 +670,43 @@ io.on('connection', (socket) => {
             isHost: true,
             hostName: playerName,
             players: rooms[roomCode].players
+        });
+    });
+
+    socket.on('add_ai_bot', (data) => {
+        const { roomCode } = data || {};
+        const room = rooms[roomCode];
+        const requester = players[socket.id];
+
+        if (!room || !requester || !requester.isHost || requester.roomCode !== roomCode) {
+            socket.emit('error', { message: 'Только хост комнаты может добавлять AI-ботов' });
+            return;
+        }
+
+        const botsInRoom = room.players.filter(p => p.isBot).length;
+        if (botsInRoom >= 4) {
+            socket.emit('error', { message: 'Можно добавить не более 4 AI-ботов в комнату' });
+            return;
+        }
+
+        let botNumber = room.players.filter(p => p.isBot).length + 1;
+        let bot = createBotPlayer(roomCode, `AI Бот #${botNumber}`);
+
+        let suffix = botNumber + 1;
+        while (room.players.some(p => p.name.toLowerCase() === bot.name.toLowerCase())) {
+            bot.name = `AI Бот #${suffix}`;
+            suffix++;
+        }
+
+        room.players.push(bot);
+
+        const host = room.players.find(p => p.isHost);
+        io.to(roomCode).emit('players_update', {
+            players: room.players,
+            hostName: host ? host.name : '-'
+        });
+        io.to(roomCode).emit('system_message', {
+            message: `${requester.name} добавил AI-бота ${bot.name}`
         });
     });
     
@@ -714,6 +884,7 @@ io.on('connection', (socket) => {
                 });
                 
                 // Завершаем игру в пользу шпиона
+                room.spyGuess = guess;
                 endGame(room, true);
             } else {
                 io.to(roomCode).emit('system_message', {
@@ -721,6 +892,7 @@ io.on('connection', (socket) => {
                 });
                 
                 // Завершаем игру в пользу мирных жителей
+                room.spyGuess = guess;
                 endGame(room, false);
             }
             room.spyGuessing = false;
@@ -739,11 +911,14 @@ io.on('connection', (socket) => {
                 });
                 
                 // Завершаем игру
+                room.spyGuess = guess;
                 endGame(room, true);
             } else {
                 io.to(roomCode).emit('system_message', {
-                    message: 'Шпион не угадал локацию. Игра продолжается.'
+                    message: `Шпион не угадал локацию. Правильная локация: "${room.currentLocation}". Игра завершена.`
                 });
+                room.spyGuess = guess;
+                endGame(room, false);
             }
         }
     });
@@ -791,6 +966,17 @@ io.on('connection', (socket) => {
         
         // Увеличиваем счетчик запросов на досрочное голосование
         room.earlyVoteRequests++;
+
+        if (!room.earlyVoteBotBoosted) {
+            const botsCount = room.players.filter(p => p.isBot).length;
+            if (botsCount > 0) {
+                room.earlyVoteRequests += botsCount;
+                room.earlyVoteBotBoosted = true;
+                io.to(roomCode).emit('system_message', {
+                    message: `AI-боты поддержали досрочное голосование (+${botsCount})`
+                });
+            }
+        }
         
         // Проверяем, достаточно ли запросов для начала голосования
         const requiredVotes = Math.ceil(room.players.length / 2);
@@ -811,7 +997,7 @@ io.on('connection', (socket) => {
         const room = rooms[roomCode];
         const player = players[socket.id];
         
-        if (!room || !player || !room.gameStarted || room.gameEnded) return;
+        if (!room || !player || !room.gameStarted || room.gameEnded || room.isVotingActive) return;
         
         // Проверяем, что сейчас ход этого игрока
         if (room.currentTurnPlayerId !== socket.id) {
@@ -838,9 +1024,9 @@ io.on('connection', (socket) => {
         const { roomCode, targetPlayerId, question } = data;
         const room = rooms[roomCode];
         const player = players[socket.id];
-        const targetPlayer = players[targetPlayerId];
+        const targetPlayer = getRoomPlayer(room, targetPlayerId);
         
-        if (!room || !player || !targetPlayer || !room.gameStarted || room.gameEnded) return;
+        if (!room || !player || !targetPlayer || !room.gameStarted || room.gameEnded || room.isVotingActive) return;
         
         // Проверяем, что сейчас ход этого игрока
         if (room.currentTurnPlayerId !== socket.id) {
@@ -878,10 +1064,18 @@ io.on('connection', (socket) => {
         });
         
         // Отправляем вопрос целевому игроку
-        io.to(targetPlayerId).emit('receive_question', {
-            askerName: player.name,
-            question: question
-        });
+        if (!targetPlayer.isBot) {
+            io.to(targetPlayerId).emit('receive_question', {
+                askerName: player.name,
+                question: question
+            });
+        } else {
+            setTimeout(() => {
+                processBotAnswer(room, targetPlayer.id, question, player.name).catch((error) => {
+                    console.error('Ошибка bot answer:', error);
+                });
+            }, getBotActionDelay());
+        }
         
         // Сбрасываем таймер
         clearInterval(room.timerInterval);
@@ -894,7 +1088,7 @@ io.on('connection', (socket) => {
         const room = rooms[roomCode];
         const player = players[socket.id];
         
-        if (!room || !player || !room.gameStarted || room.gameEnded) return;
+        if (!room || !player || !room.gameStarted || room.gameEnded || room.isVotingActive) return;
         
         // Проверяем, что этот игрок должен отвечать на вопрос
         if (!room.currentQuestion || room.currentQuestion.targetId !== socket.id) {
@@ -952,38 +1146,53 @@ io.on('connection', (socket) => {
     
     // Проголосовать
     socket.on('submit_vote', (data) => {
-        const { roomCode, votedPlayerId } = data;
+        const { roomCode, votedPlayerId, comment, skipComment } = data || {};
         const room = rooms[roomCode];
         const player = players[socket.id];
-        
-        if (!room || !player || !room.gameStarted || room.gameEnded) return;
-        
-        // Регистрируем голос
+        if (!room || !player || !room.gameStarted || room.gameEnded || !room.isVotingActive || room.voteResolutionPending) return;
+        if (room.votes[socket.id] !== undefined) return;
+
+        const votedPlayer = getRoomPlayer(room, votedPlayerId);
+        if (!votedPlayer) {
+            socket.emit('error', { message: 'Игрок для голоса не найден' });
+            return;
+        }
+
+        const voteComment = (comment || '').toString().trim();
+        if (!Array.isArray(room.voteChatMessages)) room.voteChatMessages = [];
+
         room.votes[socket.id] = votedPlayerId;
-        
-        const votedPlayer = players[votedPlayerId];
-        const votedPlayerName = votedPlayer ? votedPlayer.name : 'Неизвестно';
-        
-        // Отправляем уведомление
-        io.to(roomCode).emit('system_message', {
-            message: `${player.name} проголосовал за ${votedPlayerName}`
-        });
-        
-        // Проверяем, все ли проголосовали
+        const voteLog = `${player.name} проголосовал за ${votedPlayer.name}` + (voteComment ? ` — "${voteComment}"` : ' (без комментария)');
+        room.voteChatMessages.push({ sender: player.name, senderId: socket.id, text: voteLog, isVoteLog: true, createdAt: Date.now() });
+        emitVoteChatMessage(roomCode, { sender: player.name, senderId: socket.id, text: voteLog, isVoteLog: true });
+
+        // Отправляем прогресс голосования
+        emitVoteProgress(room);
+
+        castBotVotes(room);
+
+        // Обновляем прогресс после голосов ботов
+        emitVoteProgress(room);
+
         const allVoted = room.players.every(p => room.votes[p.id] !== undefined);
-        
-        if (allVoted) {
-            // Подсчитываем голоса
+        if (!allVoted) return;
+
+        room.voteResolutionPending = true;
+        io.to(roomCode).emit('system_message', { message: 'Все проголосовали. Подводим итоги через 3 секунды...' });
+        room.voteChatMessages.push({ sender: 'Система', senderId: null, text: 'Все голоса получены. Итог будет объявлен через 3 секунды.', isSystem: true, createdAt: Date.now() });
+        emitVoteChatMessage(roomCode, { sender: 'Система', text: 'Все голоса получены. Итог будет объявлен через 3 секунды.', isSystem: true });
+
+        setTimeout(() => {
+            if (!room || room.gameEnded) return;
+
             const voteCount = {};
             Object.values(room.votes).forEach(votedId => {
                 voteCount[votedId] = (voteCount[votedId] || 0) + 1;
             });
-            
-            // Находим игрока с наибольшим количеством голосов
+
             let maxVotes = 0;
             let mostVotedPlayerId = null;
             let voteTies = [];
-            
             Object.entries(voteCount).forEach(([playerId, votes]) => {
                 if (votes > maxVotes) {
                     maxVotes = votes;
@@ -993,18 +1202,16 @@ io.on('connection', (socket) => {
                     voteTies.push(playerId);
                 }
             });
-            
-            // Если голоса разделились поровну, продолжаем игру
+
             if (voteTies.length > 1) {
-                io.to(roomCode).emit('system_message', {
-                    message: 'Голоса разделились поровну! Игра продолжается.'
-                });
-                
-                // Сбрасываем голоса и продолжаем игру
+                room.isVotingActive = false;
+                room.voteResolutionPending = false;
+                io.to(roomCode).emit('system_message', { message: 'Голоса разделились поровну! Игра продолжается.' });
                 room.votes = {};
                 room.earlyVoteRequests = 0;
-                
-                // Возвращаемся к вопросам
+                room.earlyVoteBotBoosted = false;
+                room.voteChatMessages = [];
+
                 const nextPlayer = getNextQuestionPlayer(room);
                 if (nextPlayer) {
                     room.currentTurnPlayerId = nextPlayer.id;
@@ -1016,37 +1223,56 @@ io.on('connection', (socket) => {
                 }
                 return;
             }
-            
-            // Проверяем, является ли этот игрок шпионом
+
             const isSpyCaught = mostVotedPlayerId === room.spyId;
-            
             if (isSpyCaught) {
-                // Шпион пойман, даем ему шанс угадать локацию
+                room.isVotingActive = false;
+                room.voteResolutionPending = false;
                 room.spyGuessing = true;
-                const spyPlayer = players[room.spyId];
-                
-                io.to(roomCode).emit('system_message', {
-                    message: `Шпион ${spyPlayer.name} пойман! У него есть шанс угадать локацию и выиграть.`
-                });
-                
-                // Отправляем шпиону варианты для угадывания
-                io.to(room.spyId).emit('spy_caught_guess', {
-                    message: 'Вас поймали! Угадайте локацию из 5 вариантов, чтобы выиграть.'
-                });
-                
-                // Запускаем таймер для угадывания
+                const spyPlayer = getRoomPlayer(room, room.spyId);
+                io.to(roomCode).emit('system_message', { message: `Шпион ${spyPlayer.name} пойман! У него есть шанс угадать локацию и выиграть.` });
+
+                if (!spyPlayer?.isBot) {
+                    io.to(room.spyId).emit('spy_caught_guess', {
+                        message: 'Вас поймали! Угадайте локацию из 5 вариантов, чтобы выиграть.'
+                    });
+                } else {
+                    setTimeout(() => {
+                        processBotSpyGuess(room, spyPlayer.id).catch((error) => {
+                            console.error('Ошибка bot spy guess:', error);
+                        });
+                    }, getBotActionDelay());
+                }
                 startTurnTimer(room, 60, 'spy_guess');
             } else {
-                // Не шпиона поймали
-                const caughtPlayer = players[mostVotedPlayerId];
-                io.to(roomCode).emit('system_message', {
-                    message: `Игрок ${caughtPlayer.name} был ошибочно обвинен! Он не шпион. Шпион побеждает!`
-                });
-                
-                // Завершаем игру в пользу шпиона
+                room.isVotingActive = false;
+                room.voteResolutionPending = false;
+                const caughtPlayer = getRoomPlayer(room, mostVotedPlayerId);
+                io.to(roomCode).emit('system_message', { message: `Игрок ${caughtPlayer.name} был ошибочно обвинен! Он не шпион. Шпион побеждает!` });
                 endGame(room, true);
             }
-        }
+        }, 3000);
+    });
+
+    socket.on('send_vote_chat_message', (data) => {
+        const { roomCode, message } = data || {};
+        const room = rooms[roomCode];
+        const player = players[socket.id];
+        if (!room || !player || player.roomCode !== roomCode || !room.isVotingActive || room.gameEnded) return;
+
+        const text = (message || '').toString().trim();
+        if (!text) return;
+        const clipped = text.length > 280 ? `${text.slice(0, 277)}...` : text;
+        const payload = {
+            sender: player.name,
+            senderId: player.id,
+            text: clipped,
+            isSystem: false,
+            isVoteLog: false,
+            createdAt: Date.now()
+        };
+        room.voteChatMessages.push(payload);
+        emitVoteChatMessage(roomCode, payload);
     });
     
     // Время вышло
@@ -1180,10 +1406,14 @@ io.on('connection', (socket) => {
         room.currentQuestion = null;
         room.askedPlayers = new Set();
         room.earlyVoteRequests = 0;
+        room.earlyVoteBotBoosted = false;
         room.questionChain = [];
         room.spyGuessedLocation = false;
         room.spyGuessing = false;
         room.spyGuessOptions = [];
+        room.isVotingActive = false;
+        room.voteResolutionPending = false;
+        room.voteChatMessages = [];
         
         // Очищаем состояние всех игроков
         room.players.forEach(p => {
@@ -1283,6 +1513,199 @@ io.on('connection', (socket) => {
     });
 });
 
+function maybeTriggerBotTurn(room, timerType) {
+    if (!room || !room.gameStarted || room.gameEnded || room.isVotingActive) return;
+
+    if (timerType === 'question') {
+        const current = getRoomPlayer(room, room.currentTurnPlayerId);
+        if (current?.isBot) {
+            setTimeout(() => {
+                processBotQuestionTurn(room, current.id).catch((error) => {
+                    console.error('Ошибка bot question turn:', error);
+                });
+            }, getBotActionDelay());
+        }
+    }
+
+    if (timerType === 'spy_guess' && room.spyGuessing) {
+        const spy = getRoomPlayer(room, room.spyId);
+        if (spy?.isBot) {
+            setTimeout(() => {
+                processBotSpyGuess(room, spy.id).catch((error) => {
+                    console.error('Ошибка bot spy guess turn:', error);
+                });
+            }, getBotActionDelay());
+        }
+    }
+}
+
+async function processBotQuestionTurn(room, botId) {
+    const bot = getRoomPlayer(room, botId);
+    if (!bot || !bot.isBot || room.currentTurnPlayerId !== botId || !room.gameStarted || room.gameEnded || room.isVotingActive) return;
+
+    const availablePlayers = room.players.filter(p => p.id !== botId);
+    if (!availablePlayers.length) return;
+    const target = availablePlayers[Math.floor(Math.random() * availablePlayers.length)];
+    const answerHistory = getRecentQuestionHistory(room);
+
+    const generated = await completeAsHumanLike('question', {
+        role: bot.role,
+        locationHint: null,
+        targetName: target.name,
+        answerHistory
+    });
+    if (!room || !room.gameStarted || room.gameEnded || room.isVotingActive || room.currentTurnPlayerId !== botId) return;
+    const question = cleanBotText(
+        sanitizeBotLocationMentions(generated, room),
+        'Что ты обычно замечаешь в таком месте первым делом?'
+    );
+    const spyStyleQuestion = normalizeBotQuestionForSpyGame(question);
+
+    bot.hasAsked = true;
+    target.hasBeenAsked = true;
+    room.currentQuestion = {
+        askerId: bot.id,
+        askerName: bot.name,
+        targetId: target.id,
+        targetName: target.name,
+        question: spyStyleQuestion
+    };
+
+    io.to(room.code).emit('question_asked_chat', {
+        askerName: bot.name,
+        targetName: target.name,
+        question: spyStyleQuestion,
+        askerId: bot.id,
+        askerAvatarSeed: bot.avatarSeed
+    });
+
+    if (!target.isBot) {
+        io.to(target.id).emit('receive_question', {
+            askerName: bot.name,
+            question: spyStyleQuestion
+        });
+        startTurnTimer(room, room.turnTime, 'answer');
+        return;
+    }
+
+    await processBotAnswer(room, target.id, question, bot.name);
+}
+
+async function processBotAnswer(room, botId, questionText, askerNameFallback) {
+    const bot = getRoomPlayer(room, botId);
+    if (!bot || !bot.isBot || !room.currentQuestion || room.currentQuestion.targetId !== botId || !room.gameStarted || room.gameEnded || room.isVotingActive) return;
+
+    await wait(getBotActionDelay());
+
+    if (!room.currentQuestion || room.currentQuestion.targetId !== botId || !room.gameStarted || room.gameEnded || room.isVotingActive) return;
+    const answerHistory = getRecentQuestionHistory(room);
+
+    const generated = await completeAsHumanLike('answer', {
+        role: bot.role,
+        locationHint: null,
+        askerName: room.currentQuestion.askerName || askerNameFallback || 'Игрок',
+        question: questionText || room.currentQuestion.question,
+        answerHistory
+    });
+    if (!room.currentQuestion || room.currentQuestion.targetId !== botId || !room.gameStarted || room.gameEnded || room.isVotingActive) return;
+    const answer = cleanBotText(
+        sanitizeBotLocationMentions(generated, room),
+        'Думаю, многое зависит от времени, но обычно все довольно типично.'
+    );
+
+    io.to(room.code).emit('answer_received_chat', {
+        answererName: bot.name,
+        answer,
+        question: room.currentQuestion.question,
+        askerName: room.currentQuestion.askerName,
+        answererAvatarSeed: bot.avatarSeed
+    });
+
+    room.questionChain.push({
+        asker: room.currentQuestion.askerName,
+        answerer: bot.name,
+        question: room.currentQuestion.question,
+        answer
+    });
+
+    room.currentTurnPlayerId = bot.id;
+    io.to(room.code).emit('next_turn', {
+        nextPlayerId: bot.id,
+        nextPlayerName: bot.name
+    });
+    startTurnTimer(room, room.turnTime, 'question');
+}
+
+async function processBotSpyGuess(room, botId) {
+    const bot = getRoomPlayer(room, botId);
+    if (!bot || !bot.isBot || room.spyId !== botId || !room.spyGuessing || room.gameEnded) return;
+
+    await wait(getBotActionDelay(4200, 8200));
+    if (!room.spyGuessing || room.gameEnded || room.spyId !== botId) return;
+
+    const options = [...room.locations].filter(loc => loc !== room.currentLocation)
+        .sort(() => Math.random() - 0.5)
+        .slice(0, 4);
+    options.push(room.currentLocation);
+    room.spyGuessOptions = options.sort(() => Math.random() - 0.5);
+
+    const generatedGuess = await completeAsHumanLike('guess', {
+        role: 'spy',
+        guessOptions: room.spyGuessOptions,
+        answerHistory: getRecentQuestionHistory(room)
+    });
+    const guess = cleanBotText(generatedGuess, getRandomElement(room.spyGuessOptions));
+    const normalized = room.spyGuessOptions.find(opt => opt.toLowerCase() === guess.toLowerCase()) || getRandomElement(room.spyGuessOptions);
+    const isCorrect = normalized.toLowerCase() === room.currentLocation.toLowerCase();
+
+    io.to(room.code).emit('system_message', {
+        message: `Шпион ${bot.name} пытается угадать локацию! Он сказал: "${normalized}"`
+    });
+
+    room.spyGuessing = false;
+    if (isCorrect) {
+        io.to(room.code).emit('system_message', {
+            message: `Шпион ${bot.name} угадал локацию "${room.currentLocation}"! Шпион побеждает!`
+        });
+        endGame(room, true);
+    } else {
+        io.to(room.code).emit('system_message', {
+            message: `Шпион ${bot.name} не угадал локацию. Правильная локация: "${room.currentLocation}". Шпион проиграл!`
+        });
+        endGame(room, false);
+    }
+}
+
+function castBotVotes(room) {
+    if (!room || !room.gameStarted || room.gameEnded) return;
+    if (!Array.isArray(room.voteChatMessages)) room.voteChatMessages = [];
+    const bots = room.players.filter(p => p.isBot);
+    if (!bots.length) return;
+
+    bots.forEach(bot => {
+        if (room.votes[bot.id] !== undefined) return;
+        const options = room.players.filter(p => p.id !== bot.id);
+        if (!options.length) return;
+        const choice = options[Math.floor(Math.random() * options.length)];
+        room.votes[bot.id] = choice.id;
+        const comment = createVoteComment(bot.name, choice.name);
+        const voteLog = `${bot.name} проголосовал за ${choice.name} — "${comment}"`;
+        room.voteChatMessages.push({
+            sender: bot.name,
+            senderId: bot.id,
+            text: voteLog,
+            isVoteLog: true,
+            createdAt: Date.now()
+        });
+        emitVoteChatMessage(room.code, {
+            sender: bot.name,
+            senderId: bot.id,
+            text: voteLog,
+            isVoteLog: true
+        });
+    });
+}
+
 // Функция получения следующего игрока для вопроса
 function getNextQuestionPlayer(room) {
     // Ищем любого игрока, кроме текущего
@@ -1298,12 +1721,16 @@ function getNextQuestionPlayer(room) {
 // Функция начала игры
 function startGame(room) {
     room.roundActive = true;
+    room.isVotingActive = false;
+    room.voteResolutionPending = false;
     room.votes = {};
     room.earlyVoteRequests = 0;
+    room.earlyVoteBotBoosted = false;
     room.questionChain = [];
     room.spyGuessedLocation = false;
     room.spyGuessing = false;
     room.spyGuessOptions = [];
+    room.voteChatMessages = [];
     room.gameEnded = false;
     
     // Сбрасываем флаги игроков
@@ -1382,6 +1809,8 @@ function startTurnTimer(room, duration, timerType) {
             });
         }
     }, 1000);
+
+    maybeTriggerBotTurn(room, timerType);
 }
 
 // Функция обновления таймера для комнаты
@@ -1392,14 +1821,26 @@ function updateTimerForRoom(room, timeLeft) {
 // Функция начала голосования
 function startVoting(room) {
     clearInterval(room.timerInterval);
+    room.isVotingActive = true;
+    room.voteResolutionPending = false;
+    room.currentQuestion = null;
+    room.currentTurnPlayerId = null;
+    room.voteChatMessages = [];
     
     io.to(room.code).emit('start_voting');
+    io.to(room.code).emit('vote_chat_history', { messages: room.voteChatMessages });
     io.to(room.code).emit('system_message', {
         message: 'Начинается голосование! Проголосуйте за игрока, который, по вашему мнению, является шпионом.'
     });
     
     // Запускаем таймер для голосования (1 минута)
     startTurnTimer(room, 60, 'vote');
+
+    // Боты голосуют сразу после старта голосования
+    castBotVotes(room);
+
+    // Отправляем начальный прогресс голосования
+    emitVoteProgress(room);
 }
 
 // Функция завершения игры
@@ -1408,6 +1849,8 @@ function endGame(room, spyWins) {
     
     room.gameEnded = true;
     room.roundActive = false;
+    room.isVotingActive = false;
+    room.voteResolutionPending = false;
     clearInterval(room.timerInterval);
     
     // Находим имя шпиона
@@ -1531,7 +1974,8 @@ function endGame(room, spyWins) {
         winner: winner,
         location: room.currentLocation,
         spyName: spyName,
-        spyWins: spyWins
+        spyWins: spyWins,
+        spyGuess: room.spyGuess || null
     });
     
     // Отправляем системное сообщение
@@ -1550,14 +1994,19 @@ function returnToLobby(room) {
     // Сбрасываем состояние комнаты
     room.gameStarted = false;
     room.roundActive = false;
+    room.isVotingActive = false;
+    room.voteResolutionPending = false;
     room.votes = {};
     room.currentTurnPlayerId = null;
     room.earlyVoteRequests = 0;
+    room.earlyVoteBotBoosted = false;
     room.currentQuestion = null;
     room.questionChain = [];
     room.spyGuessedLocation = false;
     room.spyGuessing = false;
     room.spyGuessOptions = [];
+    room.spyGuess = null;
+    room.voteChatMessages = [];
     room.gameEnded = false;
     
     // Сбрасываем роли и флаги игроков
