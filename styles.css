@@ -2357,3 +2357,638 @@ footer {
         max-width: unset;
     }
 }
+
+/* Исправление для поискового поля в светлой теме */
+.light-theme .header-search input {
+    background-color: #ffffff !important;
+    border-color: #e2e8f0 !important;
+    color: #2d3436 !important;
+}
+
+.light-theme .header-search .fa-search {
+    color: #7f8c8d !important;
+}
+
+.light-theme .search-results-dropdown {
+    background: #ffffff !important;
+    border: 1px solid #e2e8f0 !important;
+    color: #2d3436 !important;
+}
+
+.light-theme .search-results-dropdown .search-result-item {
+    color: #2d3436 !important;
+}
+
+.light-theme .search-results-dropdown .search-result-item:hover {
+    background-color: #f1f5f9 !important;
+}
+
+/* Исправление для уведомлений в светлой теме */
+.light-theme .notifications-dropdown {
+    background: #ffffff !important;
+    border: 1px solid #e2e8f0 !important;
+    color: #2d3436 !important;
+}
+
+.light-theme .notification-item {
+    border-bottom-color: #f1f5f9 !important;
+    color: #2d3436 !important;
+}
+
+.light-theme .notification-item:hover {
+    background-color: #f8fafc !important;
+}
+
+.light-theme .notification-item.unread {
+    background-color: rgba(52, 152, 219, 0.05) !important;
+}
+
+/* Стили для поискового поля в хедере */
+.header-search {
+    flex: 1;
+    max-width: 280px;
+    position: relative;
+}
+
+.header-search input {
+    width: 100%;
+    padding: 8px 12px 8px 36px;
+    border-radius: 8px;
+    border: 1px solid rgba(255,255,255,0.2);
+    background: rgba(255,255,255,0.08);
+    color: inherit;
+    font-family: 'Roboto', sans-serif;
+    font-size: 0.95rem;
+    transition: all 0.3s ease;
+}
+
+.header-search input:focus {
+    outline: none;
+    border-color: #4db8ff;
+    box-shadow: 0 0 0 2px rgba(77, 184, 255, 0.2);
+}
+
+.header-search .fa-search {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #888;
+    pointer-events: none;
+    font-size: 0.9rem;
+}
+
+.search-results-dropdown {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    margin-top: 4px;
+    background: rgba(30,40,50,0.98);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 8px;
+    max-height: 280px;
+    overflow-y: auto;
+    z-index: 1000;
+}
+
+.search-result-item {
+    padding: 10px 15px;
+    cursor: pointer;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    color: #f0f0f0;
+    transition: background-color 0.2s;
+}
+
+.search-result-item:last-child {
+    border-bottom: none;
+}
+
+.search-result-item:hover {
+    background-color: rgba(255,255,255,0.1);
+}
+
+.search-result-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    margin-right: 10px;
+    background-color: #4db8ff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: bold;
+    font-size: 0.8rem;
+}
+
+.search-result-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.search-result-username {
+    font-weight: 600;
+    font-size: 0.95rem;
+}
+
+.search-result-display-name {
+    font-size: 0.85rem;
+    color: #aaa;
+    margin-top: 2px;
+}
+
+/* Стили для уведомлений */
+.notifications-dropdown {
+    display: none;
+    position: absolute;
+    top: 100%;
+    right: 0;
+    margin-top: 4px;
+    min-width: 320px;
+    max-height: 400px;
+    overflow-y: auto;
+    background: rgba(20, 25, 35, 0.98);
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    z-index: 1000;
+}
+
+.notification-item {
+    padding: 12px 15px;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    color: #f0f0f0;
+    transition: background-color 0.2s;
+}
+
+.notification-item:last-child {
+    border-bottom: none;
+}
+
+.notification-item:hover {
+    background-color: rgba(255,255,255,0.05);
+}
+
+.notification-item.unread {
+    background-color: rgba(77, 184, 255, 0.1);
+}
+
+.notification-icon {
+    margin-right: 10px;
+    color: #4db8ff;
+    font-size: 1rem;
+}
+
+.notification-content {
+    flex: 1;
+}
+
+.notification-time {
+    font-size: 0.8rem;
+    color: #888;
+    margin-top: 4px;
+}
+
+.notification-actions {
+    margin-top: 8px;
+    display: flex;
+    gap: 8px;
+}
+
+/* Справка «О сайте и игре» */
+.info-about-site-modal {
+    max-width: 620px;
+    max-height: 85vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.info-about-site-body {
+    text-align: left;
+    overflow-y: auto;
+    padding: 0 4px 8px;
+    flex: 1;
+    min-height: 0;
+}
+
+.info-about-site-body h3 {
+    margin: 20px 0 10px;
+    color: #4db8ff;
+    font-size: 1rem;
+    font-weight: 700;
+}
+
+.info-about-site-body h3:first-of-type {
+    margin-top: 12px;
+}
+
+.info-about-site-body ul {
+    margin: 0 0 4px 20px;
+    padding: 0;
+}
+
+.info-about-site-body li {
+    margin-bottom: 6px;
+    line-height: 1.45;
+}
+
+.info-about-site-body li i {
+    color: #4db8ff;
+    width: 1.1em;
+}
+
+body.light-theme .info-about-site-body h3 {
+    color: #2c8fd6;
+}
+
+/* Страница «Клубы» */
+.clubs-page main {
+    max-width: 1180px;
+    margin: 0 auto;
+}
+
+.clubs-page-hero {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    margin-bottom: 22px;
+    padding: 22px 26px;
+    background: linear-gradient(135deg, rgba(77, 184, 255, 0.14) 0%, rgba(77, 184, 255, 0.04) 55%, rgba(255, 255, 255, 0.03) 100%);
+    border: 1px solid rgba(77, 184, 255, 0.28);
+    border-radius: 16px;
+}
+
+.clubs-hero-icon {
+    width: 64px;
+    height: 64px;
+    border-radius: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.75rem;
+    color: #4db8ff;
+    background: rgba(77, 184, 255, 0.18);
+    border: 1px solid rgba(77, 184, 255, 0.35);
+    flex-shrink: 0;
+}
+
+.clubs-page-hero h2 {
+    margin: 0 0 6px;
+    font-size: 1.5rem;
+}
+
+.clubs-page-hero p {
+    margin: 0;
+    color: #888;
+    max-width: 520px;
+    line-height: 1.45;
+}
+
+.clubs-layout {
+    display: grid;
+    grid-template-columns: minmax(300px, 360px) 1fr;
+    gap: 20px;
+    align-items: start;
+}
+
+.clubs-sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.clubs-card {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 16px;
+    padding: 18px 20px;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.clubs-card:hover {
+    border-color: rgba(77, 184, 255, 0.22);
+}
+
+.clubs-card--create {
+    background: linear-gradient(160deg, rgba(77, 184, 255, 0.1) 0%, rgba(255, 255, 255, 0.04) 100%);
+    border-color: rgba(77, 184, 255, 0.25);
+}
+
+.clubs-card--stats {
+    min-height: 420px;
+    display: flex;
+    flex-direction: column;
+}
+
+.clubs-section-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0 0 14px;
+    font-size: 1.05rem;
+    font-weight: 700;
+}
+
+.clubs-section-title i {
+    color: #4db8ff;
+}
+
+.clubs-form {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.clubs-form input[type="text"],
+.clubs-form textarea {
+    width: 100%;
+    padding: 12px 14px;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(0, 0, 0, 0.2);
+    color: inherit;
+    font-family: inherit;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.clubs-form input:focus,
+.clubs-form textarea:focus {
+    outline: none;
+    border-color: rgba(77, 184, 255, 0.55);
+    box-shadow: 0 0 0 3px rgba(77, 184, 255, 0.12);
+}
+
+.clubs-form textarea {
+    resize: vertical;
+    min-height: 72px;
+}
+
+.clubs-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.club-item {
+    padding: 14px 16px;
+    border-radius: 14px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.03);
+    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s, transform 0.15s;
+}
+
+.club-item:hover {
+    background: rgba(77, 184, 255, 0.1);
+    border-color: rgba(77, 184, 255, 0.35);
+    transform: translateY(-1px);
+}
+
+.club-item.active {
+    background: rgba(77, 184, 255, 0.16);
+    border-color: rgba(77, 184, 255, 0.55);
+    box-shadow: 0 4px 16px rgba(77, 184, 255, 0.12);
+}
+
+.club-item-head {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+}
+
+.club-item-icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(77, 184, 255, 0.15);
+    color: #4db8ff;
+    flex-shrink: 0;
+    font-size: 1rem;
+}
+
+.club-item-body {
+    flex: 1;
+    min-width: 0;
+}
+
+.club-name {
+    font-weight: 800;
+    font-size: 1rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.club-item-meta {
+    font-size: 0.85rem;
+    color: #888;
+    margin-top: 4px;
+}
+
+.club-role-badge {
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 4px 8px;
+    border-radius: 8px;
+    background: rgba(77, 184, 255, 0.15);
+    color: #4db8ff;
+    border: 1px solid rgba(77, 184, 255, 0.3);
+    white-space: nowrap;
+}
+
+.club-role-badge.owner {
+    background: rgba(255, 215, 0, 0.12);
+    color: #ffd700;
+    border-color: rgba(255, 215, 0, 0.35);
+}
+
+.club-item-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    margin-top: 12px;
+}
+
+.clubs-btn-small {
+    padding: 8px 12px;
+    border-radius: 10px;
+    border: 2px solid rgba(77, 184, 255, 0.35);
+    background: rgba(77, 184, 255, 0.12);
+    color: white;
+    font-weight: 700;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s;
+}
+
+.clubs-btn-small:hover {
+    background: rgba(77, 184, 255, 0.22);
+    border-color: rgba(77, 184, 255, 0.55);
+}
+
+.clubs-btn-outline-danger {
+    padding: 8px 12px;
+    border-radius: 10px;
+    border: 2px solid rgba(255, 107, 107, 0.45);
+    background: rgba(255, 107, 107, 0.12);
+    color: white;
+    font-weight: 700;
+    font-size: 0.85rem;
+    cursor: pointer;
+}
+
+.clubs-btn-outline-danger:hover {
+    background: rgba(255, 107, 107, 0.22);
+}
+
+.clubs-empty-state {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 40px 24px;
+    color: #888;
+    gap: 12px;
+}
+
+.clubs-empty-state i {
+    font-size: 2.5rem;
+    color: rgba(77, 184, 255, 0.45);
+}
+
+.clubs-empty-state strong {
+    color: #ccc;
+    font-size: 1.05rem;
+}
+
+.clubs-details-header {
+    margin-bottom: 18px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.clubs-details-header .club-name-lg {
+    font-weight: 800;
+    font-size: 1.35rem;
+    margin-bottom: 6px;
+}
+
+.clubs-stats-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 16px;
+}
+
+.clubs-stat-pill {
+    padding: 10px 14px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    font-size: 0.85rem;
+    color: #888;
+}
+
+.clubs-stat-pill strong {
+    display: block;
+    font-size: 1.15rem;
+    color: #4db8ff;
+    margin-top: 2px;
+}
+
+.clubs-stat-pill strong.green {
+    color: #4cd964;
+}
+
+.clubs-table-wrap {
+    overflow: auto;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.clubs-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.clubs-table th,
+.clubs-table td {
+    text-align: left;
+    padding: 10px 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.clubs-table th {
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #888;
+    background: rgba(0, 0, 0, 0.15);
+}
+
+.clubs-table tr:last-child td {
+    border-bottom: none;
+}
+
+.clubs-table tr:hover td {
+    background: rgba(77, 184, 255, 0.05);
+}
+
+.clubs-muted {
+    color: #888;
+}
+
+.clubs-error {
+    color: #ff6b6b;
+    font-size: 0.9rem;
+    min-height: 1.2em;
+}
+
+body.light-theme .clubs-page-hero {
+    background: linear-gradient(135deg, rgba(77, 184, 255, 0.12) 0%, rgba(255, 255, 255, 0.9) 100%);
+}
+
+body.light-theme .clubs-card {
+    background: rgba(255, 255, 255, 0.85);
+}
+
+body.light-theme .clubs-form input,
+body.light-theme .clubs-form textarea {
+    background: #fff;
+}
+
+body.light-theme .club-item {
+    background: rgba(77, 184, 255, 0.04);
+}
+
+body.light-theme .clubs-empty-state strong {
+    color: #333;
+}
+
+body.light-theme .clubs-btn-small {
+    color: #2980b9 !important;
+}
+
+body.light-theme .clubs-btn-outline-danger {
+    color: #c0392b !important;
+}
+
+@media (max-width: 900px) {
+    .clubs-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .clubs-card--stats {
+        min-height: 280px;
+    }
+}

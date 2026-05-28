@@ -131,7 +131,7 @@ function appendMessageToThread(m) {
     row.innerHTML = `
         <img class="msg-avatar" src="${avatarUrl}" alt="" width="36" height="36">
         <div class="bubble">
-            <div style="font-weight:700; color:${isMe ? '#e7f6ff' : '#4db8ff'}; font-size:0.9rem; margin-bottom:4px;">
+            <div class="msg-sender-name${isMe ? ' msg-sender-name--me' : ''}">
                 ${escapeHtml(isMe ? 'Вы' : (m.sender_display_name || 'Игрок'))}
             </div>
             <div style="white-space:pre-wrap; word-break:break-word;">${escapeHtml(m.text)}</div>

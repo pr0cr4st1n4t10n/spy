@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
@@ -8,28 +8,10 @@
     <link rel="stylesheet" href="/styles.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&family=Roboto:wght@300;400;500&display=swap" rel="stylesheet">
-    <style>
-        .clubs-page main { max-width: 1100px; margin: 0 auto; }
-        .clubs-layout { display:grid; grid-template-columns: 340px 1fr; gap: 16px; align-items:start; }
-        .clubs-card { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 14px; }
-        .club-item { padding: 10px 12px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.06); background: rgba(255,255,255,0.03); cursor:pointer; }
-        .club-item:hover { background: rgba(77,184,255,0.12); border-color: rgba(77,184,255,0.35); }
-        .club-item.active { background: rgba(77,184,255,0.18); border-color: rgba(77,184,255,0.55); }
-        .section-title { display:flex; align-items:center; gap:10px; margin: 0 0 10px; }
-        .club-name { font-weight: 900; }
-        .btn-small { padding: 8px 10px; border-radius: 10px; border: 2px solid rgba(77,184,255,0.35); background: rgba(77,184,255,0.12); color: white; font-weight: 800; cursor:pointer; }
-        .btn-outline-danger { padding: 8px 10px; border-radius: 10px; border: 2px solid rgba(255,107,107,0.45); background: rgba(255,107,107,0.12); color: white; font-weight: 800; cursor:pointer; }
-        .row { display:flex; gap: 10px; align-items:center; flex-wrap: wrap; }
-        input[type="text"], textarea { width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.05); color: inherit; }
-        .grid-2 { display:grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-        .muted { color:#888; }
-        .table { width:100%; border-collapse: collapse; }
-        .table th, .table td { text-align:left; padding: 8px 10px; border-bottom: 1px solid rgba(255,255,255,0.06); }
-    </style>
 </head>
-<body class="dark-theme">
+<body class="dark-theme clubs-page">
     <div class="emoji-rain"></div>
-    <div class="container clubs-page">
+    <div class="container">
         <header style="display: flex; align-items: center; gap: 15px; flex-wrap: wrap;">
             <h1><a href="/" style="color: inherit; text-decoration: none;"><i class="fas fa-user-secret"></i> ШПИОН</a></h1>
             <div class="header-search" style="flex: 1; max-width: 280px; position: relative;">
@@ -75,64 +57,60 @@
         </header>
 
         <main>
+            <div class="clubs-page-hero">
+                <div class="clubs-hero-icon"><i class="fas fa-users"></i></div>
+                <div>
+                    <h2>Клубы</h2>
+                    <p>Объединяйтесь в команды, соревнуйтесь по рейтингу и следите за статистикой каждого участника.</p>
+                </div>
+            </div>
+
             <div class="clubs-layout">
-                <div style="display:flex;flex-direction:column;gap: 16px;">
-                    <div class="clubs-card">
-                        <h3 class="section-title"><i class="fas fa-plus-circle" style="color:#4db8ff;"></i>Создать клуб</h3>
-                        <div style="display:flex;flex-direction:column;gap:10px;">
-                            <input id="createClubName" type="text" maxlength="40" placeholder="Название клуба (2-40)">
+                <aside class="clubs-sidebar">
+                    <div class="clubs-card clubs-card--create">
+                        <h3 class="clubs-section-title"><i class="fas fa-plus-circle"></i> Создать клуб</h3>
+                        <div class="clubs-form">
+                            <input id="createClubName" type="text" maxlength="40" placeholder="Название клуба (2–40 символов)">
                             <textarea id="createClubDescription" rows="3" maxlength="500" placeholder="Описание (необязательно)"></textarea>
-                            <button id="createClubBtn" class="btn-small"><i class="fas fa-trophy"></i> Создать</button>
-                            <div id="clubsError" class="muted" style="color:#ff6b6b;"></div>
+                            <button id="createClubBtn" type="button" class="btn-primary"><i class="fas fa-flag"></i> Создать клуб</button>
+                            <div id="clubsError" class="clubs-error"></div>
                         </div>
                     </div>
 
                     <div class="clubs-card">
-                        <h3 class="section-title"><i class="fas fa-user-check" style="color:#4db8ff;"></i>Мои клубы</h3>
-                        <div id="myClubsList" style="display:flex;flex-direction:column;gap: 10px;">
-                            <div class="muted">Загрузка...</div>
+                        <h3 class="clubs-section-title"><i class="fas fa-id-card"></i> Мои клубы</h3>
+                        <div id="myClubsList" class="clubs-list">
+                            <div class="clubs-muted">Загрузка...</div>
                         </div>
                     </div>
 
                     <div class="clubs-card">
-                        <h3 class="section-title"><i class="fas fa-list" style="color:#4db8ff;"></i>Доступные клубы</h3>
-                        <div id="availableClubsList" style="display:flex;flex-direction:column;gap: 10px;">
-                            <div class="muted">Загрузка...</div>
+                        <h3 class="clubs-section-title"><i class="fas fa-compass"></i> Доступные клубы</h3>
+                        <div id="availableClubsList" class="clubs-list">
+                            <div class="clubs-muted">Загрузка...</div>
                         </div>
                     </div>
-                </div>
+                </aside>
 
-                <div class="clubs-card">
-                    <h3 class="section-title"><i class="fas fa-chart-line" style="color:#4db8ff;"></i>Статистика клуба</h3>
-                    <div id="clubDetails" class="muted">Выберите клуб слева</div>
-                    <div style="margin-top: 12px; overflow:auto;" id="clubStatsWrap"></div>
-                </div>
+                <section class="clubs-card clubs-card--stats">
+                    <h3 class="clubs-section-title"><i class="fas fa-chart-line"></i> Статистика клуба</h3>
+                    <div id="clubDetails">
+                        <div class="clubs-empty-state" id="clubDetailsPlaceholder">
+                            <i class="fas fa-hand-pointer"></i>
+                            <strong>Выберите клуб слева</strong>
+                            <span>Нажмите «Детали» или «Статистика», чтобы увидеть рейтинг команды и таблицу игроков.</span>
+                        </div>
+                    </div>
+                    <div id="clubStatsWrap"></div>
+                </section>
             </div>
         </main>
     </div>
 
-    <div id="infoAboutSiteModal" class="modal">
-        <div class="modal-content" style="max-width: 500px;">
-            <h2><i class="fas fa-info-circle"></i> О сайте и игре</h2>
-            <div class="modal-body" style="text-align: left;">
-                <p><strong>Суть игры «Угадай шпиона»:</strong></p>
-                <p>Все игроки попадают на одну и ту же локацию, кроме одного — шпиона. Мирные жители знают локацию и задают друг другу вопросы, чтобы вычислить шпиона. Шпион не знает локацию и пытается не выдать себя. Игра заканчивается, когда шпиона вычислили (и он не угадал локацию) или шпион угадал локацию.</p>
-                <p style="margin-top: 12px;"><strong>Кнопки в шапке:</strong></p>
-                <ul style="margin: 8px 0 0 16px;">
-                    <li><i class="fas fa-sun"></i> / <i class="fas fa-moon"></i> — смена оформления (светлая/тёмная тема)</li>
-                    <li><i class="fas fa-volume-up"></i> — включение/отключение звуков игры</li>
-                    <li><i class="fas fa-cloud-moon"></i> — включение/отключение падающих эмодзи на фоне</li>
-                    <li><i class="fas fa-info-circle"></i> — эта подсказка</li>
-                </ul>
-            </div>
-            <button id="closeInfoAboutSiteBtn" class="btn-secondary">Закрыть</button>
-        </div>
-    </div>
-
+    <script src="/info-about-site.js"></script>
     <script src="/header.js"></script>
     <script src="/site-header.js"></script>
     <script src="/socket.io/socket.io.js"></script>
     <script src="/clubs.js"></script>
 </body>
 </html>
-

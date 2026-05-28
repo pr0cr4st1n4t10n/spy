@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
@@ -32,11 +32,23 @@
         .bubble small { color:#888; display:block; margin-top: 4px; }
         .thread-footer { display:flex; gap: 10px; margin-top: 10px; }
         .thread-footer input { flex:1; padding: 10px 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.05); color: inherit; }
-        .btn-send { padding: 10px 16px; border-radius: 10px; cursor:pointer; border: 2px solid rgba(77,184,255,0.45); background: rgba(77,184,255,0.14); color: white; font-weight: 800; }
+        .btn-send { padding: 10px 16px; border-radius: 10px; cursor:pointer; border: 2px solid rgba(77,184,255,0.45); background: rgba(77,184,255,0.14); color: #e7f6ff; font-weight: 800; }
         .btn-send:disabled { opacity: 0.6; cursor:not-allowed; }
+        .msg-sender-name { font-weight: 700; font-size: 0.9rem; margin-bottom: 4px; color: #4db8ff; }
+        .msg-sender-name--me { color: #e7f6ff; }
         .muted { color:#888; }
         .table { width:100%; border-collapse: collapse; }
         .table th, .table td { text-align:left; padding: 8px 10px; border-bottom: 1px solid rgba(255,255,255,0.06); }
+        body.light-theme .messages-card { background: #ffffff; border-color: #e9ecef; }
+        body.light-theme .conversation-item { background: #f8fafc; border-color: #e9ecef; }
+        body.light-theme .conversation-item:hover { background: rgba(77,184,255,0.1); }
+        body.light-theme .conversation-item.active { background: rgba(77,184,255,0.14); }
+        body.light-theme .bubble { background: #f8fafc; border-color: #e9ecef; }
+        body.light-theme .message-row.me .bubble { background: rgba(77,184,255,0.12); border-color: rgba(77,184,255,0.35); }
+        body.light-theme .thread-footer input { background: #ffffff; border-color: #e2e8f0; color: #2d3436; }
+        body.light-theme .btn-send { color: #2980b9; }
+        body.light-theme .msg-sender-name--me { color: #2980b9; }
+        body.light-theme .table th, body.light-theme .table td { border-bottom-color: #e9ecef; }
     </style>
 </head>
 <body class="dark-theme">
@@ -117,24 +129,7 @@
         </main>
     </div>
 
-    <div id="infoAboutSiteModal" class="modal">
-        <div class="modal-content" style="max-width: 500px;">
-            <h2><i class="fas fa-info-circle"></i> О сайте и игре</h2>
-            <div class="modal-body" style="text-align: left;">
-                <p><strong>Суть игры «Угадай шпиона»:</strong></p>
-                <p>Все игроки попадают на одну и ту же локацию, кроме одного — шпиона. Мирные жители знают локацию и задают друг другу вопросы, чтобы вычислить шпиона. Шпион не знает локацию и пытается не выдать себя. Игра заканчивается, когда шпиона вычислили (и он не угадал локацию) или шпион угадал локацию.</p>
-                <p style="margin-top: 12px;"><strong>Кнопки в шапке:</strong></p>
-                <ul style="margin: 8px 0 0 16px;">
-                    <li><i class="fas fa-sun"></i> / <i class="fas fa-moon"></i> — смена оформления (светлая/тёмная тема)</li>
-                    <li><i class="fas fa-volume-up"></i> — включение/отключение звуков игры</li>
-                    <li><i class="fas fa-cloud-moon"></i> — включение/отключение падающих эмодзи на фоне</li>
-                    <li><i class="fas fa-info-circle"></i> — эта подсказка</li>
-                </ul>
-            </div>
-            <button id="closeInfoAboutSiteBtn" class="btn-secondary">Закрыть</button>
-        </div>
-    </div>
-
+    <script src="/info-about-site.js"></script>
     <script src="/header.js"></script>
     <script src="/site-header.js"></script>
     <script src="/socket.io/socket.io.js"></script>

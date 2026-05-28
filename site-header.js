@@ -16,18 +16,6 @@
         return 'https://api.dicebear.com/7.x/avataaars/svg?seed=' + encodeURIComponent(s) + '&backgroundColor=4db8ff';
     }
 
-    function initInfoModal() {
-        const infoBtn = document.getElementById('infoAboutSiteBtn');
-        const infoModal = document.getElementById('infoAboutSiteModal');
-        const closeInfo = document.getElementById('closeInfoAboutSiteBtn');
-        if (!infoBtn || !infoModal) return;
-        infoBtn.addEventListener('click', () => infoModal.classList.add('active'));
-        if (closeInfo) closeInfo.addEventListener('click', () => infoModal.classList.remove('active'));
-        infoModal.addEventListener('click', (e) => {
-            if (e.target === infoModal) infoModal.classList.remove('active');
-        });
-    }
-
     function initHeaderUserSearch() {
         const headerSearch = document.getElementById('headerSearch');
         const headerSearchResults = document.getElementById('headerSearchResults');
@@ -284,7 +272,6 @@
 
     document.addEventListener('DOMContentLoaded', () => {
         initHeaderUserSearch();
-        initInfoModal();
         syncAuthHeader();
     });
 })();

@@ -781,21 +781,6 @@ function setupEventListeners() {
         }
     });
 
-    // Кнопка "О сайте"
-    const infoAboutSiteBtn = document.getElementById('infoAboutSiteBtn');
-    const infoAboutSiteModal = document.getElementById('infoAboutSiteModal');
-    const closeInfoAboutSiteBtn = document.getElementById('closeInfoAboutSiteBtn');
-    if (infoAboutSiteBtn && infoAboutSiteModal) {
-        infoAboutSiteBtn.addEventListener('click', () => {
-            infoAboutSiteModal.classList.add('active');
-        });
-    }
-    if (closeInfoAboutSiteBtn && infoAboutSiteModal) {
-        closeInfoAboutSiteBtn.addEventListener('click', () => {
-            infoAboutSiteModal.classList.remove('active');
-        });
-    }
-
     if (closeLocationImageViewerBtn && locationImageViewerModal) {
         closeLocationImageViewerBtn.addEventListener('click', () => {
             locationImageViewerModal.classList.remove('active');

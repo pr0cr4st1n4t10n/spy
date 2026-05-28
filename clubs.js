@@ -26,7 +26,7 @@ async function ensureAuth() {
 async function loadMyClubs() {
     const list = document.getElementById('myClubsList');
     if (!list) return;
-    list.innerHTML = '<div class="muted">Загрузка...</div>';
+    list.innerHTML = '<div class="clubs-muted">Загрузка...</div>';
 
     const res = await fetch('/api/clubs/my', { credentials: 'same-origin' });
     const data = await res.json();
@@ -34,7 +34,7 @@ async function loadMyClubs() {
 
     const clubs = data.clubs || [];
     if (!clubs.length) {
-        list.innerHTML = '<div class="muted">Пока нет клубов</div>';
+        list.innerHTML = '<div class="clubs-muted">Пока нет клубов</div>';
         return;
     }
 
@@ -43,19 +43,20 @@ async function loadMyClubs() {
         const item = document.createElement('div');
         item.className = 'club-item' + (c.id === selectedClubId ? ' active' : '');
         item.dataset.clubId = String(c.id);
+        const roleClass = c.role === 'owner' ? 'owner' : '';
+        const roleLabel = c.role === 'owner' ? 'Владелец' : (c.role === 'member' ? 'Участник' : escapeHtml(c.role || ''));
         item.innerHTML = `
-            <div class="row" style="justify-content:space-between;">
-                <div style="min-width:0;">
-                    <div class="club-name" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(c.name)}</div>
-                    <div class="muted" style="font-size:0.85rem; margin-top:4px;">
-                        участников: ${c.members_count ?? 0} • ваш рейтинг: ${c.my_rating ?? 0}
-                    </div>
+            <div class="club-item-head">
+                <div class="club-item-icon"><i class="fas fa-shield-alt"></i></div>
+                <div class="club-item-body">
+                    <div class="club-name">${escapeHtml(c.name)}</div>
+                    <div class="club-item-meta">участников: ${c.members_count ?? 0} · ваш рейтинг: ${c.my_rating ?? 0}</div>
                 </div>
-                <div class="muted" style="font-size:0.85rem; white-space:nowrap;">${escapeHtml(c.role || '')}</div>
+                <span class="club-role-badge ${roleClass}">${roleLabel}</span>
             </div>
-            <div class="row" style="margin-top:10px; justify-content:flex-end;">
-                ${c.role !== 'owner' ? `<button class="btn-outline-danger" data-action="leave" style="width:auto;"><i class="fas fa-sign-out-alt"></i> Выйти</button>` : ''}
-                <button class="btn-small" data-action="details" style="width:auto;"><i class="fas fa-chart-line"></i> Детали</button>
+            <div class="club-item-actions">
+                ${c.role !== 'owner' ? `<button type="button" class="clubs-btn-outline-danger" data-action="leave"><i class="fas fa-sign-out-alt"></i> Выйти</button>` : ''}
+                <button type="button" class="clubs-btn-small" data-action="details"><i class="fas fa-chart-line"></i> Детали</button>
             </div>
         `;
 
@@ -75,7 +76,7 @@ async function loadMyClubs() {
 async function loadAvailableClubs() {
     const list = document.getElementById('availableClubsList');
     if (!list) return;
-    list.innerHTML = '<div class="muted">Загрузка...</div>';
+    list.innerHTML = '<div class="clubs-muted">Загрузка...</div>';
 
     const res = await fetch('/api/clubs/list?limit=20', { credentials: 'same-origin' });
     const data = await res.json();
@@ -83,7 +84,7 @@ async function loadAvailableClubs() {
 
     const clubs = data.clubs || [];
     if (!clubs.length) {
-        list.innerHTML = '<div class="muted">Нет клубов</div>';
+        list.innerHTML = '<div class="clubs-muted">Нет клубов</div>';
         return;
     }
 
@@ -93,17 +94,20 @@ async function loadAvailableClubs() {
         item.className = 'club-item' + (c.id === selectedClubId ? ' active' : '');
         item.dataset.clubId = String(c.id);
         item.innerHTML = `
-            <div style="display:flex; gap:10px; align-items:flex-start; justify-content:space-between;">
-                <div style="min-width:0;">
-                    <div class="club-name" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(c.name)}</div>
-                    <div class="muted" style="font-size:0.85rem; margin-top:4px;">участников: ${c.members_count ?? 0}</div>
+            <div class="club-item-head">
+                <div class="club-item-icon"><i class="fas fa-users"></i></div>
+                <div class="club-item-body">
+                    <div class="club-name">${escapeHtml(c.name)}</div>
+                    <div class="club-item-meta">участников: ${c.members_count ?? 0}</div>
                 </div>
-                <div style="display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end;">
-                    <button class="btn-small" data-action="details" style="width:auto;">
-                        <i class="fas fa-chart-line"></i> Статистика
-                    </button>
-                    ${c.is_member ? `<div class="muted" style="font-size:0.85rem; align-self:center;">вы уже в клубе</div>` : `<button class="btn-small" data-action="join" style="width:auto;"><i class="fas fa-user-plus"></i> Вступить</button>`}
-                </div>
+            </div>
+            <div class="club-item-actions">
+                <button type="button" class="clubs-btn-small" data-action="details">
+                    <i class="fas fa-chart-line"></i> Статистика
+                </button>
+                ${c.is_member
+                    ? '<span class="clubs-muted" style="align-self:center;font-size:0.85rem;">вы в клубе</span>'
+                    : '<button type="button" class="clubs-btn-small" data-action="join"><i class="fas fa-user-plus"></i> Вступить</button>'}
             </div>
         `;
 
@@ -127,14 +131,14 @@ async function loadClubStats(clubId, clickedEl) {
     document.querySelectorAll('.club-item').forEach(x => x.classList.remove('active'));
     if (clickedEl) clickedEl.classList.add('active');
 
-    wrap.innerHTML = '<div class="muted">Загрузка...</div>';
-    clubDetails.textContent = 'Загрузка...';
+    wrap.innerHTML = '<div class="clubs-muted">Загрузка...</div>';
+    clubDetails.innerHTML = '<div class="clubs-muted">Загрузка...</div>';
 
     const res = await fetch(`/api/clubs/${clubId}/stats`, { credentials: 'same-origin' });
     const data = await res.json();
     if (!res.ok || data.error) {
-        wrap.innerHTML = `<div class="muted">${escapeHtml(data.error || 'Нет доступа к статистике')}</div>`;
-        clubDetails.textContent = 'Нет доступа';
+        wrap.innerHTML = '';
+        clubDetails.innerHTML = `<div class="clubs-empty-state"><i class="fas fa-lock"></i><strong>Нет доступа</strong><span>${escapeHtml(data.error || 'Статистика недоступна')}</span></div>`;
         return;
     }
 
@@ -142,40 +146,21 @@ async function loadClubStats(clubId, clickedEl) {
     const totals = data.totals || {};
 
     clubDetails.innerHTML = `
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
-            <div>
-                <div style="font-weight:900;font-size:1.1rem;">${escapeHtml(club.name)}</div>
-                <div class="muted" style="font-size:0.85rem; margin-top:4px;">${club.description ? escapeHtml(club.description) : 'без описания'}</div>
-            </div>
-            <div class="muted" style="font-size:0.85rem;">команда рейтинг: ${totals.team_rating ?? 0}</div>
+        <div class="clubs-details-header">
+            <div class="club-name-lg">${escapeHtml(club.name)}</div>
+            <p class="clubs-muted" style="margin:0;">${club.description ? escapeHtml(club.description) : 'Без описания'}</p>
         </div>
     `;
 
     const ranking = data.ranking || [];
-    const header = `
-        <table class="table">
-            <thead>
-                <tr>
-                    <th>Игрок</th>
-                    <th>Роль</th>
-                    <th>Игры</th>
-                    <th>Победы шпиона</th>
-                    <th>Победы мирного</th>
-                    <th>Поражения</th>
-                    <th>Рейтинг</th>
-                </tr>
-            </thead>
-            <tbody>
-    `;
-
     const rows = ranking.map((r, idx) => `
         <tr>
             <td>
                 <div style="display:flex;gap:10px;align-items:center;">
-                    <img src="${getAvatarUrl(r.avatar_seed || r.username)}" style="width:34px;height:34px;border-radius:50%;object-fit:cover;border:2px solid rgba(77,184,255,0.35);">
+                    <img src="${getAvatarUrl(r.avatar_seed || r.username)}" alt="" style="width:36px;height:36px;border-radius:50%;object-fit:cover;border:2px solid rgba(77,184,255,0.35);">
                     <div>
                         <div style="font-weight:800;">#${idx + 1} ${escapeHtml(r.display_name || r.username)}</div>
-                        <div class="muted" style="font-size:0.85rem;">@${escapeHtml(r.username)}</div>
+                        <div class="clubs-muted" style="font-size:0.85rem;">@${escapeHtml(r.username)}</div>
                     </div>
                 </div>
             </td>
@@ -184,22 +169,33 @@ async function loadClubStats(clubId, clickedEl) {
             <td>${r.games_won_as_spy ?? 0}</td>
             <td>${r.games_won_as_civilian ?? 0}</td>
             <td>${r.games_lost ?? 0}</td>
-            <td style="font-weight:900; color:#4db8ff;">${r.rating ?? 0}</td>
+            <td style="font-weight:800;color:#4db8ff;">${r.rating ?? 0}</td>
         </tr>
     `).join('');
 
-    const footer = `
-            </tbody>
-        </table>
-    `;
-
     wrap.innerHTML = `
-        <div class="row" style="margin-bottom:12px;">
-            <div class="muted">Всего игр в клубе: <strong style="color:#4db8ff;">${totals.games_played ?? 0}</strong></div>
-            <div class="muted">Победы шпиона: <strong style="color:#4cd964;">${totals.games_won_as_spy ?? 0}</strong></div>
-            <div class="muted">Победы мирного: <strong style="color:#4db8ff;">${totals.games_won_as_civilian ?? 0}</strong></div>
+        <div class="clubs-stats-pills">
+            <div class="clubs-stat-pill">Рейтинг команды<strong>${totals.team_rating ?? 0}</strong></div>
+            <div class="clubs-stat-pill">Всего игр<strong>${totals.games_played ?? 0}</strong></div>
+            <div class="clubs-stat-pill">Победы шпиона<strong class="green">${totals.games_won_as_spy ?? 0}</strong></div>
+            <div class="clubs-stat-pill">Победы мирных<strong>${totals.games_won_as_civilian ?? 0}</strong></div>
         </div>
-        ${header}${rows}${footer}
+        <div class="clubs-table-wrap">
+            <table class="clubs-table">
+                <thead>
+                    <tr>
+                        <th>Игрок</th>
+                        <th>Роль</th>
+                        <th>Игры</th>
+                        <th>Победы шпиона</th>
+                        <th>Победы мирного</th>
+                        <th>Поражения</th>
+                        <th>Рейтинг</th>
+                    </tr>
+                </thead>
+                <tbody>${rows || '<tr><td colspan="7" class="clubs-muted">Нет данных</td></tr>'}</tbody>
+            </table>
+        </div>
     `;
 }
 

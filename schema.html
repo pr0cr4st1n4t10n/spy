@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>Структурная схема — УгадайШпиона</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #fff;
+    font-family: 'Times New Roman', serif;
+    font-size: 13px;
+    padding: 30px;
+  }
+
+  .tree {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+  }
+
+  /* ===== Блок ===== */
+  .box {
+    border: 1.5px solid #000;
+    padding: 8px 14px;
+    text-align: center;
+    background: #fff;
+    min-width: 140px;
+    max-width: 160px;
+    line-height: 1.3;
+  }
+
+  /* ===== Вертикальная линия вниз от блока ===== */
+  .v-line {
+    width: 1.5px;
+    background: #000;
+    height: 30px;
+    margin: 0 auto;
+  }
+
+  /* ===== Горизонтальная шина ===== */
+  .h-bus {
+    height: 1.5px;
+    background: #000;
+  }
+
+  /* ===== Строка с дочерними блоками ===== */
+  .row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 0;
+    width: 100%;
+  }
+
+  /* Колонка — содержит вертикальную линию + блок (+ возможно ещё дочерние) */
+  .col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  /* Отступы между колонками */
+  .col + .col {
+    margin-left: 0;
+  }
+
+  /* ===== Специфика для уровней ===== */
+
+  /* Уровень 1: три главных раздела */
+  .level1 {
+    width: 900px;
+  }
+  .level1 .h-bus {
+    width: 600px;
+  }
+
+  /* Уровень 2: подразделы игрового раздела */
+  .level2-game {
+    width: 340px;
+  }
+  .level2-game .h-bus {
+    width: 200px;
+  }
+
+  /* Уровень 2: подразделы социального раздела */
+  .level2-social {
+    width: 340px;
+  }
+  .level2-social .h-bus {
+    width: 200px;
+  }
+
+  /* Уровень 2: подразделы авторизации */
+  .level2-auth {
+    width: 340px;
+  }
+  .level2-auth .h-bus {
+    width: 200px;
+  }
+
+  /* Игровые шаги — вертикальная цепочка */
+  .game-steps {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  /* Разделитель между тремя главными колонками */
+  .spacer {
+    width: 60px;
+  }
+
+  .title {
+    text-align: center;
+    font-size: 15px;
+    font-weight: bold;
+    margin-bottom: 30px;
+    font-family: 'Times New Roman', serif;
+  }
+</style>
+</head>
+<body>
+
+<div class="title">Структурная схема веб-приложения «УгадайШпиона»</div>
+
+<div class="tree">
+
+  <!-- КОРЕНЬ -->
+  <div class="box">Главная страница<br>(index.html)</div>
+  <div class="v-line" style="height:30px;"></div>
+
+  <!-- Горизонтальная шина уровня 1 -->
+  <div style="position:relative; width:700px; height:1.5px; background:#000;"></div>
+
+  <!-- Три вертикальные линии вниз от шины -->
+  <div class="row" style="width:700px; justify-content:space-between; align-items:flex-start;">
+
+    <!-- ЛЕВАЯ КОЛОНКА: Авторизация -->
+    <div class="col" style="width:200px; align-items:center;">
+      <div class="v-line" style="height:30px;"></div>
+      <div class="box" style="min-width:150px; max-width:170px;">Авторизация<br>(auth.html)</div>
+      <div class="v-line" style="height:20px;"></div>
+      <!-- Горизонтальная шина авторизации -->
+      <div style="width:170px; height:1.5px; background:#000;"></div>
+      <div class="row" style="width:170px; justify-content:space-between;">
+        <div class="col">
+          <div class="v-line" style="height:20px;"></div>
+          <div class="box" style="min-width:70px; max-width:80px; font-size:12px;">Регистра-<br>ция</div>
+        </div>
+        <div class="col">
+          <div class="v-line" style="height:20px;"></div>
+          <div class="box" style="min-width:70px; max-width:80px; font-size:12px;">Вход в<br>аккаунт</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ЦЕНТРАЛЬНАЯ КОЛОНКА: Игровой раздел -->
+    <div class="col" style="width:240px; align-items:center;">
+      <div class="v-line" style="height:30px;"></div>
+      <div class="box" style="min-width:160px; max-width:180px;">Игровой раздел</div>
+      <div class="v-line" style="height:20px;"></div>
+      <!-- Вертикальная цепочка игровых шагов -->
+      <div class="game-steps">
+        <div class="box" style="min-width:160px; max-width:180px;">Создание /<br>вход в комнату</div>
+        <div class="v-line" style="height:20px;"></div>
+        <div class="box" style="min-width:160px; max-width:180px;">Лобби комнаты</div>
+        <div class="v-line" style="height:20px;"></div>
+        <div class="box" style="min-width:160px; max-width:180px;">Игровой процесс<br>(вопросы / ответы)</div>
+        <div class="v-line" style="height:20px;"></div>
+        <div class="box" style="min-width:160px; max-width:180px;">Голосование<br>за шпиона</div>
+        <div class="v-line" style="height:20px;"></div>
+        <div class="box" style="min-width:160px; max-width:180px;">Угадывание<br>локации шпионом</div>
+        <div class="v-line" style="height:20px;"></div>
+        <div class="box" style="min-width:160px; max-width:180px;">Итоги партии</div>
+      </div>
+    </div>
+
+    <!-- ПРАВАЯ КОЛОНКА: Социальный раздел -->
+    <div class="col" style="width:220px; align-items:center;">
+      <div class="v-line" style="height:30px;"></div>
+      <div class="box" style="min-width:150px; max-width:170px;">Социальный<br>раздел</div>
+      <div class="v-line" style="height:20px;"></div>
+      <!-- Вертикальная цепочка социальных страниц -->
+      <div class="game-steps">
+        <div class="box" style="min-width:150px; max-width:170px;">Профиль<br>(profile.html)</div>
+        <div class="v-line" style="height:20px;"></div>
+        <div class="box" style="min-width:150px; max-width:170px;">Личные<br>сообщения<br>(messages.html)</div>
+        <div class="v-line" style="height:20px;"></div>
+        <div class="box" style="min-width:150px; max-width:170px;">Клубы<br>(clubs.html)</div>
+        <div class="v-line" style="height:20px;"></div>
+        <div class="box" style="min-width:150px; max-width:170px;">Таблица<br>лидеров<br>(leaderboard.html)</div>
+        <div class="v-line" style="height:20px;"></div>
+        <div class="box" style="min-width:150px; max-width:170px;">Панель<br>администратора<br>(admin.html)</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+</body>
+</html>
