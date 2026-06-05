@@ -23,7 +23,7 @@ const adminRoutes = require('./routes/admin');
 const messagesRoutes = require('./routes/messages');
 const clubsRoutes = require('./routes/clubs');
 const presence = require('./presence');
-const { completeAsHumanLike } = require('./openrouter');
+const { completeAsHumanLike, isValidSpyGameQuestion, pickSpyGameFallbackQuestion } = require('./openrouter');
 
 // Конфигурация сервера
 const PORT = process.env.PORT || 3000;
@@ -264,32 +264,10 @@ function sanitizeBotLocationMentions(text, room) {
     return safe;
 }
 
-function normalizeBotQuestionForSpyGame(text) {
-    const genericTriggers = [
-        'любой ситуации',
-        'по жизни',
-        'в жизни',
-        'важным элементом',
-        'что для тебя важно',
-        'какой твой любимый',
-        'как ты считаешь'
-    ];
-    const fallbackQuestions = [
-        'Что ты обычно делаешь сразу после того, как туда приходишь?',
-        'Какой самый частый повод прийти сюда у большинства людей?',
-        'Что здесь чаще всего мешает или раздражает?',
-        'Какая мелочь здесь сразу выдаёт новичка?',
-        'Сколько обычно занимает типичное посещение?',
-        'Что здесь принято делать, а что — нет?'
-    ];
-
+function normalizeBotQuestionForSpyGame(text, answerHistory = []) {
     let normalized = (text || '').toString().trim().replace(/\s+/g, ' ');
-    if (!normalized) return getRandomElement(fallbackQuestions);
-
-    const lower = normalized.toLowerCase();
-    const isGeneric = genericTriggers.some((trigger) => lower.includes(trigger));
-    if (isGeneric) {
-        return getRandomElement(fallbackQuestions);
+    if (!normalized || !isValidSpyGameQuestion(normalized)) {
+        return pickSpyGameFallbackQuestion(answerHistory);
     }
 
     if (!normalized.endsWith('?')) {
@@ -1562,9 +1540,9 @@ async function processBotQuestionTurn(room, botId) {
     if (!room || !room.gameStarted || room.gameEnded || room.isVotingActive || room.currentTurnPlayerId !== botId) return;
     const question = cleanBotText(
         sanitizeBotLocationMentions(generated, room),
-        'Что ты обычно замечаешь в таком месте первым делом?'
+        pickSpyGameFallbackQuestion(answerHistory)
     );
-    const spyStyleQuestion = normalizeBotQuestionForSpyGame(question);
+    const spyStyleQuestion = normalizeBotQuestionForSpyGame(question, answerHistory);
 
     bot.hasAsked = true;
     target.hasBeenAsked = true;

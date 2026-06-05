@@ -21,11 +21,83 @@ function pickUniqueTemplate(templates, recentTexts) {
     return randomItem(fresh.length ? fresh : templates);
 }
 
+const SPY_GAME_QUESTION_TEMPLATES = [
+    'Что ты обычно делаешь сразу после того, как сюда приходишь?',
+    'Какой самый частый повод прийти сюда у большинства людей?',
+    'Что здесь чаще всего мешает или раздражает?',
+    'Какая мелочь здесь сразу выдаёт новичка?',
+    'Сколько обычно занимает типичное посещение этого места?',
+    'Что здесь принято делать, а что — нет?',
+    'Какой звук или запах ты здесь замечаешь первым?',
+    'Что люди чаще всего забывают, когда приходят сюда?',
+    'Как обычно выглядит самый загруженный момент здесь?',
+    'Что здесь чаще всего спрашивают у персонала?',
+    'Какая деталь в одежде или поведении здесь выглядит неуместно?',
+    'Что здесь делают, если задерживаются дольше обычного?'
+];
+
+const OFF_TOPIC_QUESTION_TRIGGERS = [
+    'знаком',
+    'незнаком',
+    'в жизни',
+    'по жизни',
+    'в целом',
+    'вообще',
+    'где угодно',
+    'в любом месте',
+    'что для тебя важно',
+    'как ты считаешь',
+    'какой твой любимый',
+    'реагируешь, когда',
+    'встречаешь',
+    'отношени',
+    'чувств',
+    'философ',
+    'мечта',
+    'идеальн',
+    'если бы ты мог'
+];
+
+const LOCATION_ANCHOR_WORDS = [
+    'здесь',
+    'сюда',
+    'туда',
+    'это место',
+    'этом месте',
+    'таком месте',
+    'приход',
+    'посещ',
+    'очеред',
+    'персонал',
+    'нович',
+    'заведен',
+    'на входе',
+    'на выходе',
+    'внутри',
+    'сколько времени',
+    'сколько обычно',
+    'когда приходишь',
+    'когда бываешь'
+];
+
+function isValidSpyGameQuestion(text) {
+    const normalized = (text || '').toString().trim().toLowerCase().replace(/\s+/g, ' ');
+    if (!normalized || normalized.length < 12) return false;
+    if (OFF_TOPIC_QUESTION_TRIGGERS.some((trigger) => normalized.includes(trigger))) return false;
+    if (!LOCATION_ANCHOR_WORDS.some((anchor) => normalized.includes(anchor))) return false;
+    return true;
+}
+
+function pickSpyGameFallbackQuestion(answerHistory) {
+    const recentQuestions = getRecentTexts(answerHistory, 'question');
+    return pickUniqueTemplate(SPY_GAME_QUESTION_TEMPLATES, recentQuestions);
+}
+
 function buildFallbackText(kind, context = {}) {
     const recentQuestions = getRecentTexts(context.answerHistory, 'question');
     const recentAnswers = getRecentTexts(context.answerHistory, 'answer');
 
-    const questionTemplates = [
+    const questionTemplates = SPY_GAME_QUESTION_TEMPLATES;
         'Что ты обычно делаешь сразу после того, как туда приходишь?',
         'Какой самый частый повод прийти сюда у большинства людей?',
         'Что здесь чаще всего мешает или раздражает?',
@@ -104,8 +176,10 @@ async function completeAsHumanLike(kind, context = {}) {
         roleHint,
         (kind === 'question' || kind === 'answer') ? 'Никогда не называй конкретную локацию прямо.' : '',
         (kind === 'question' || kind === 'answer') ? 'Не используй очевидные подсказки локации (еда, самолёты, сцена, книги, больные, спорт и т.п.).' : '',
-        kind === 'question' ? 'Сформулируй один короткий вопрос для проверки на шпиона: про действия, привычки, очередь, правила, типичные ситуации. Вопрос должен звучать по-разному от партии к партии.' : '',
-        kind === 'question' ? 'Избегай шаблонных формулировок вроде "темп, шум или ожидание", "что для тебя важно", "в жизни".' : '',
+        kind === 'question' ? 'Все игроки находятся в одной секретной локации (её название нельзя произносить). Задай ОДИН короткий вопрос другому игроку строго про эту локацию: что люди делают здесь, как ведут себя, сколько времени проводят, что непринято, что замечают новички.' : '',
+        kind === 'question' ? 'Вопрос ОБЯЗАН быть привязан к месту — используй слова "здесь", "сюда", "когда приходишь сюда", "в этом месте".' : '',
+        kind === 'question' ? 'Запрещены общие вопросы про жизнь, знакомых, чувства, отношения, встречи вне локации, философию. Примеры плохих вопросов: "как реагируешь на знакомых", "что для тебя важно в жизни".' : '',
+        kind === 'question' ? 'Примеры хороших вопросов: "Что ты делаешь сразу, как сюда приходишь?", "Что здесь чаще всего раздражает?", "Какая мелочь выдаёт новичка здесь?".' : '',
         kind === 'answer' ? 'Дай короткий правдоподобный ответ на вопрос, 1-2 предложения.' : '',
         kind === 'chat' ? 'Напиши короткую реплику в общий чат, без повторения чужих фраз.' : '',
         kind === 'guess' ? 'Выбери одну локацию из доступных вариантов и ответь только названием.' : '',
@@ -153,7 +227,11 @@ async function completeAsHumanLike(kind, context = {}) {
         if (!text) {
             return buildFallbackText(kind, context);
         }
-        return text.split('\n')[0].trim();
+        const line = text.split('\n')[0].trim();
+        if (kind === 'question' && !isValidSpyGameQuestion(line)) {
+            return buildFallbackText(kind, context);
+        }
+        return line;
     } catch (error) {
         console.warn('[openrouter] request failed:', error.message);
         return buildFallbackText(kind, context);
@@ -162,5 +240,7 @@ async function completeAsHumanLike(kind, context = {}) {
 
 module.exports = {
     completeAsHumanLike,
-    buildFallbackText
+    buildFallbackText,
+    isValidSpyGameQuestion,
+    pickSpyGameFallbackQuestion
 };
