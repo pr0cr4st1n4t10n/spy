@@ -1,4 +1,3 @@
 node_modules/
 spy_game.db
 *.db
-.env

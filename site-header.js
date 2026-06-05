@@ -79,7 +79,7 @@
                 const data = await res.json();
                 const list = data.notifications || [];
                 let unread = 0;
-                let html = '<div style="padding:10px 12px;border-bottom:1px solid rgba(255,255,255,0.1);display:flex;justify-content:space-between;align-items:center;"><strong>Уведомления</strong><button id="deleteAllNotificationsBtn" style="background:none;border:none;color:#ff6b6b;cursor:pointer;font-size:0.85rem;">Удалить все</button></div>';
+                let html = '<div class="notifications-dropdown-header"><strong>Уведомления</strong><button id="deleteAllNotificationsBtn" class="notifications-delete-all-btn">Удалить все</button></div>';
                 if (list.length) {
                     list.forEach(n => {
                         if (!n.read_at) unread++;
@@ -87,7 +87,7 @@
                         let actions = '';
                         if (n.type === 'friend_request') {
                             msg = ' хочет добавить вас в друзья';
-                            actions = `<button class="accept-friend-btn" data-user-id="${n.data.from_user_id}" style="background:#4cd964;border:none;color:white;padding:4px 8px;border-radius:4px;cursor:pointer;margin-right:4px;font-size:0.85rem;">Принять</button><button class="reject-friend-btn" data-user-id="${n.data.from_user_id}" style="background:#ff6b6b;border:none;color:white;padding:4px 8px;border-radius:4px;cursor:pointer;font-size:0.85rem;">Отклонить</button>`;
+                            actions = `<button class="accept-friend-btn notifications-action-btn accept" data-user-id="${n.data.from_user_id}">Принять</button><button class="reject-friend-btn notifications-action-btn reject" data-user-id="${n.data.from_user_id}">Отклонить</button>`;
                         } else if (n.type === 'friend_accepted') {
                             msg = ' принял заявку в друзья';
                         } else if (n.type === 'profile_like') {
@@ -97,7 +97,7 @@
                         } else if (n.type === 'game_invite') {
                             msg = ' приглашает вас в игру';
                             const roomCode = n.data.room_code || '';
-                            actions = `<button class="accept-invite-btn" data-room-code="${roomCode}" style="background:#4cd964;border:none;color:white;padding:4px 8px;border-radius:4px;cursor:pointer;font-size:0.85rem;">Принять</button>`;
+                            actions = `<button class="accept-invite-btn notifications-action-btn accept" data-room-code="${roomCode}">Принять</button>`;
                         } else if (n.type === 'dm_message') {
                             msg = ' написал вам в чат';
                         }
@@ -105,16 +105,16 @@
                         const link = (n.type === 'dm_message' && n.data && n.data.from_user_id)
                             ? ('/messages?friend_id=' + n.data.from_user_id)
                             : ((n.data && n.data.from_user_id) ? '/profile/' + n.data.from_user_id : '#');
-                        const bgColor = n.read_at ? 'rgba(255,255,255,0.02)' : 'rgba(77,184,255,0.1)';
-                        html += `<div style="display:flex;align-items:center;padding:10px 12px;background:${bgColor};border-bottom:1px solid rgba(255,255,255,0.06);" data-notif-id="${n.id}">
-                            <a href="${link}" style="flex:1;color:inherit;text-decoration:none;" data-id="${n.id}">
-                                <strong>${from}</strong>${msg}<br><small style="color:#888">${new Date(n.created_at).toLocaleString('ru')}</small>
+                        const rowClass = n.read_at ? 'read' : 'unread';
+                        html += `<div class="notifications-dropdown-row ${rowClass}" data-notif-id="${n.id}">
+                            <a href="${link}" class="notifications-dropdown-link" data-id="${n.id}">
+                                <strong>${from}</strong>${msg}<br><small class="notifications-dropdown-time">${new Date(n.created_at).toLocaleString('ru')}</small>
                             </a>
-                            <div style="display:flex;align-items:center;gap:4px;">${actions}<button class="delete-notif-btn" data-id="${n.id}" style="background:none;border:none;color:#ff6b6b;cursor:pointer;padding:4px 8px;margin-left:4px;" title="Удалить">×</button></div>
+                            <div style="display:flex;align-items:center;gap:4px;">${actions}<button class="delete-notif-btn notifications-delete-btn" data-id="${n.id}" title="Удалить">×</button></div>
                         </div>`;
                     });
                 } else {
-                    html += '<div style="padding:12px;color:#888;text-align:center;">Нет уведомлений</div>';
+                    html += '<div class="notifications-dropdown-empty">Нет уведомлений</div>';
                 }
                 notificationsDropdown.innerHTML = html;
                 notificationsDropdown.style.display = 'block';
@@ -188,13 +188,13 @@
                         if (!confirm('Удалить все уведомления?')) return;
                         try {
                             await fetch('/api/profile/notifications', { method: 'DELETE', credentials: 'same-origin' });
-                            notificationsDropdown.innerHTML = '<div style="padding:12px;color:#888;text-align:center;">Нет уведомлений</div>';
+                            notificationsDropdown.innerHTML = '<div class="notifications-dropdown-empty">Нет уведомлений</div>';
                             if (notificationsBadge) notificationsBadge.style.display = 'none';
                         } catch (err) { /* ignore */ }
                     });
                 }
             } catch (err) {
-                notificationsDropdown.innerHTML = '<div style="padding:12px;color:#888;">Ошибка загрузки</div>';
+                notificationsDropdown.innerHTML = '<div class="notifications-dropdown-empty">Ошибка загрузки</div>';
                 notificationsDropdown.style.display = 'block';
             }
         });
