@@ -55,36 +55,44 @@ const OFF_TOPIC_QUESTION_TRIGGERS = [
     'философ',
     'мечта',
     'идеальн',
-    'если бы ты мог'
+    'если бы ты мог',
+    'в группе',
+    'групп',
+    'мнен',
+    'обсужда',
+    'себя вед',
+    'обычно себя',
+    'спор',
+    'конфликт',
+    'компани',
+    'характер',
+    'личност',
+    'стресс',
+    'нервн'
 ];
 
-const LOCATION_ANCHOR_WORDS = [
+const REQUIRED_LOCATION_ANCHORS = [
     'здесь',
     'сюда',
-    'туда',
-    'это место',
     'этом месте',
+    'это место',
     'таком месте',
-    'приход',
-    'посещ',
+    'приходишь',
+    'приходят',
+    'приходите',
+    'посещени',
     'очеред',
     'персонал',
     'нович',
-    'заведен',
     'на входе',
-    'на выходе',
-    'внутри',
-    'сколько времени',
-    'сколько обычно',
-    'когда приходишь',
-    'когда бываешь'
+    'на выходе'
 ];
 
 function isValidSpyGameQuestion(text) {
     const normalized = (text || '').toString().trim().toLowerCase().replace(/\s+/g, ' ');
     if (!normalized || normalized.length < 12) return false;
     if (OFF_TOPIC_QUESTION_TRIGGERS.some((trigger) => normalized.includes(trigger))) return false;
-    if (!LOCATION_ANCHOR_WORDS.some((anchor) => normalized.includes(anchor))) return false;
+    if (!REQUIRED_LOCATION_ANCHORS.some((anchor) => normalized.includes(anchor))) return false;
     return true;
 }
 
@@ -98,19 +106,6 @@ function buildFallbackText(kind, context = {}) {
     const recentAnswers = getRecentTexts(context.answerHistory, 'answer');
 
     const questionTemplates = SPY_GAME_QUESTION_TEMPLATES;
-        'Что ты обычно делаешь сразу после того, как туда приходишь?',
-        'Какой самый частый повод прийти сюда у большинства людей?',
-        'Что здесь чаще всего мешает или раздражает?',
-        'Какая мелочь здесь сразу выдаёт новичка?',
-        'Сколько обычно занимает типичное посещение?',
-        'Что здесь принято делать, а что — нет?',
-        'Какой звук или запах ты здесь замечаешь первым?',
-        'Что люди чаще всего забывают, когда приходят сюда?',
-        'Как обычно выглядит самый загруженный момент?',
-        'Что здесь чаще всего спрашивают у персонала или друг у друга?',
-        'Какая деталь в одежде или поведении здесь выглядит неуместно?',
-        'Что здесь делают, если задерживаются дольше обычного?'
-    ];
     const answerTemplates = [
         'Обычно сначала осматриваюсь и понимаю, куда лучше встать.',
         'Чаще всего прихожу по делу, без лишней суеты.',
@@ -154,6 +149,10 @@ function buildHistoryHint(answerHistory) {
 }
 
 async function completeAsHumanLike(kind, context = {}) {
+    if (kind === 'question') {
+        return pickSpyGameFallbackQuestion(context.answerHistory);
+    }
+
     if (!OPENROUTER_API_KEY) {
         if (!apiKeyWarningShown) {
             apiKeyWarningShown = true;
