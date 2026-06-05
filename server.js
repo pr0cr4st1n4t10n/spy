@@ -276,6 +276,50 @@ function normalizeBotQuestionForSpyGame(text, answerHistory = []) {
     return normalized;
 }
 
+function createQuestionSession(room, askerId, askerName, targetId, targetName, question) {
+    const sessionId = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+    room.currentQuestion = {
+        sessionId,
+        askerId,
+        askerName,
+        targetId,
+        targetName,
+        question
+    };
+    return sessionId;
+}
+
+function isActiveQuestionSession(room, targetId, sessionId) {
+    const current = room.currentQuestion;
+    return !!(current && current.targetId === targetId && current.sessionId === sessionId);
+}
+
+function finalizeQuestionAnswer(room, answerer, snapshot, answer) {
+    io.to(room.code).emit('answer_received_chat', {
+        answererName: answerer.name,
+        answer,
+        question: snapshot.question,
+        askerName: snapshot.askerName,
+        answererAvatarSeed: answerer.avatarSeed
+    });
+
+    room.questionChain.push({
+        asker: snapshot.askerName,
+        answerer: answerer.name,
+        question: snapshot.question,
+        answer
+    });
+
+    room.currentQuestion = null;
+    room.currentTurnPlayerId = answerer.id;
+    io.to(room.code).emit('next_turn', {
+        nextPlayerId: answerer.id,
+        nextPlayerName: answerer.name
+    });
+    clearInterval(room.timerInterval);
+    startTurnTimer(room, room.turnTime, 'question');
+}
+
 // Socket.io обработчики
 io.on('connection', (socket) => {
     console.log('Новое подключение:', socket.id);
@@ -624,7 +668,8 @@ io.on('connection', (socket) => {
             gameEnded: false,
             isVotingActive: false,
             voteResolutionPending: false,
-            voteChatMessages: []
+            voteChatMessages: [],
+            botAnswerInFlight: {}
         };
         
         const player = {
@@ -1028,15 +1073,15 @@ io.on('connection', (socket) => {
         // Помечаем игрока как получившего вопрос
         targetPlayer.hasBeenAsked = true;
         
-        // Сохраняем текущий вопрос
-        room.currentQuestion = {
-            askerId: socket.id,
-            askerName: player.name,
-            targetId: targetPlayerId,
-            targetName: targetPlayer.name,
-            question: question
-        };
-        
+        const sessionId = createQuestionSession(
+            room,
+            socket.id,
+            player.name,
+            targetPlayerId,
+            targetPlayer.name,
+            question
+        );
+
         // Отправляем вопрос и ответ в чат для всех
         io.to(roomCode).emit('question_asked_chat', {
             askerName: player.name,
@@ -1053,14 +1098,11 @@ io.on('connection', (socket) => {
                 question: question
             });
         } else {
-            setTimeout(() => {
-                processBotAnswer(room, targetPlayer.id, question, player.name).catch((error) => {
-                    console.error('Ошибка bot answer:', error);
-                });
-            }, getBotActionDelay());
+            processBotAnswer(room, targetPlayer.id, question, player.name, sessionId).catch((error) => {
+                console.error('Ошибка bot answer:', error);
+            });
         }
-        
-        // Сбрасываем таймер
+
         clearInterval(room.timerInterval);
         startTurnTimer(room, room.turnTime, 'answer');
     });
@@ -1079,34 +1121,12 @@ io.on('connection', (socket) => {
             return;
         }
         
-        // Отправляем ответ в чат для всех
-        io.to(roomCode).emit('answer_received_chat', {
-            answererName: player.name,
-            answer: answer,
+        const snapshot = {
+            sessionId: room.currentQuestion.sessionId,
             question: room.currentQuestion.question,
-            askerName: room.currentQuestion.askerName,
-            answererAvatarSeed: player.avatarSeed
-        });
-        
-        // Добавляем игрока в цепочку вопросов
-        room.questionChain.push({
-            asker: room.currentQuestion.askerName,
-            answerer: player.name,
-            question: room.currentQuestion.question,
-            answer: answer
-        });
-        
-        // Выбираем следующего игрока для вопроса (этот, кто только что ответил)
-        room.currentTurnPlayerId = socket.id;
-        
-        // Отправляем информацию о следующем ходе
-        io.to(room.code).emit('next_turn', {
-            nextPlayerId: player.id,
-            nextPlayerName: player.name
-        });
-        
-        // Запускаем таймер для вопроса
-        startTurnTimer(room, room.turnTime, 'question');
+            askerName: room.currentQuestion.askerName
+        };
+        finalizeQuestionAnswer(room, player, snapshot, answer);
     });
     
     // Получить список игроков для голосования
@@ -1546,13 +1566,14 @@ async function processBotQuestionTurn(room, botId) {
 
     bot.hasAsked = true;
     target.hasBeenAsked = true;
-    room.currentQuestion = {
-        askerId: bot.id,
-        askerName: bot.name,
-        targetId: target.id,
-        targetName: target.name,
-        question: spyStyleQuestion
-    };
+    const sessionId = createQuestionSession(
+        room,
+        bot.id,
+        bot.name,
+        target.id,
+        target.name,
+        spyStyleQuestion
+    );
 
     io.to(room.code).emit('question_asked_chat', {
         askerName: bot.name,
@@ -1567,56 +1588,55 @@ async function processBotQuestionTurn(room, botId) {
             askerName: bot.name,
             question: spyStyleQuestion
         });
+        clearInterval(room.timerInterval);
         startTurnTimer(room, room.turnTime, 'answer');
         return;
     }
 
-    await processBotAnswer(room, target.id, question, bot.name);
+    await processBotAnswer(room, target.id, spyStyleQuestion, bot.name, sessionId);
 }
 
-async function processBotAnswer(room, botId, questionText, askerNameFallback) {
+async function processBotAnswer(room, botId, questionText, askerName, sessionId) {
     const bot = getRoomPlayer(room, botId);
-    if (!bot || !bot.isBot || !room.currentQuestion || room.currentQuestion.targetId !== botId || !room.gameStarted || room.gameEnded || room.isVotingActive) return;
+    if (!bot || !bot.isBot || !room.gameStarted || room.gameEnded || room.isVotingActive) return;
+    if (!isActiveQuestionSession(room, botId, sessionId)) return;
+
+    if (!room.botAnswerInFlight) room.botAnswerInFlight = {};
+    if (room.botAnswerInFlight[botId] && room.botAnswerInFlight[botId] !== sessionId) return;
+    room.botAnswerInFlight[botId] = sessionId;
+
+    const snapshot = {
+        sessionId,
+        question: questionText,
+        askerName: askerName || 'Игрок'
+    };
 
     await wait(getBotActionDelay());
 
-    if (!room.currentQuestion || room.currentQuestion.targetId !== botId || !room.gameStarted || room.gameEnded || room.isVotingActive) return;
-    const answerHistory = getRecentQuestionHistory(room);
+    if (!isActiveQuestionSession(room, botId, sessionId) || !room.gameStarted || room.gameEnded || room.isVotingActive) {
+        if (room.botAnswerInFlight[botId] === sessionId) delete room.botAnswerInFlight[botId];
+        return;
+    }
 
     const generated = await completeAsHumanLike('answer', {
         role: bot.role,
-        locationHint: null,
-        askerName: room.currentQuestion.askerName || askerNameFallback || 'Игрок',
-        question: questionText || room.currentQuestion.question,
-        answerHistory
+        locationHint: bot.role === 'civilian' ? room.currentLocation : null,
+        askerName: snapshot.askerName,
+        question: snapshot.question
     });
-    if (!room.currentQuestion || room.currentQuestion.targetId !== botId || !room.gameStarted || room.gameEnded || room.isVotingActive) return;
+
+    if (!isActiveQuestionSession(room, botId, sessionId) || !room.gameStarted || room.gameEnded || room.isVotingActive) {
+        if (room.botAnswerInFlight[botId] === sessionId) delete room.botAnswerInFlight[botId];
+        return;
+    }
+
     const answer = cleanBotText(
         sanitizeBotLocationMentions(generated, room),
         'Думаю, многое зависит от времени, но обычно все довольно типично.'
     );
 
-    io.to(room.code).emit('answer_received_chat', {
-        answererName: bot.name,
-        answer,
-        question: room.currentQuestion.question,
-        askerName: room.currentQuestion.askerName,
-        answererAvatarSeed: bot.avatarSeed
-    });
-
-    room.questionChain.push({
-        asker: room.currentQuestion.askerName,
-        answerer: bot.name,
-        question: room.currentQuestion.question,
-        answer
-    });
-
-    room.currentTurnPlayerId = bot.id;
-    io.to(room.code).emit('next_turn', {
-        nextPlayerId: bot.id,
-        nextPlayerName: bot.name
-    });
-    startTurnTimer(room, room.turnTime, 'question');
+    finalizeQuestionAnswer(room, bot, snapshot, answer);
+    if (room.botAnswerInFlight[botId] === sessionId) delete room.botAnswerInFlight[botId];
 }
 
 async function processBotSpyGuess(room, botId) {

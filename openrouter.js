@@ -30,7 +30,6 @@ const SPY_GAME_QUESTION_TEMPLATES = [
     'Что здесь принято делать, а что — нет?',
     'Какой звук или запах ты здесь замечаешь первым?',
     'Что люди чаще всего забывают, когда приходят сюда?',
-    'Как обычно выглядит самый загруженный момент здесь?',
     'Что здесь чаще всего спрашивают у персонала?',
     'Какая деталь в одежде или поведении здесь выглядит неуместно?',
     'Что здесь делают, если задерживаются дольше обычного?'
@@ -148,9 +147,64 @@ function buildHistoryHint(answerHistory) {
     return `Недавние вопросы и ответы (не повторяй их формулировки): ${lines.join(' | ')}`;
 }
 
+async function requestOpenRouterCompletion(systemPrompt, userPrompt, maxTokens = 100, temperature = 0.9) {
+    const response = await fetch(OPENROUTER_URL, {
+        method: 'POST',
+        headers: {
+            Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+            'Content-Type': 'application/json',
+            'HTTP-Referer': process.env.OPENROUTER_SITE_URL || 'http://localhost:3000',
+            'X-Title': process.env.OPENROUTER_APP_NAME || 'spy-game-online'
+        },
+        body: JSON.stringify({
+            model: OPENROUTER_MODEL,
+            temperature,
+            max_tokens: maxTokens,
+            messages: [
+                { role: 'system', content: systemPrompt },
+                { role: 'user', content: userPrompt }
+            ]
+        })
+    });
+
+    if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    const text = data?.choices?.[0]?.message?.content?.trim();
+    if (!text) {
+        throw new Error('Empty AI response');
+    }
+    return text.split('\n')[0].trim();
+}
+
+async function generateSpyGameQuestion(context = {}) {
+    const baseQuestion = pickSpyGameFallbackQuestion(context.answerHistory);
+    if (!OPENROUTER_API_KEY) return baseQuestion;
+
+    try {
+        const rephrased = await requestOpenRouterCompletion(
+            [
+                'Ты участник игры "Шпион".',
+                'Перефразируй вопрос по-русски, сохрани тот же смысл.',
+                'Вопрос должен быть про общую секретную локацию, обязательно со словом "здесь" или "сюда".',
+                'Не добавляй новых тем. Не называй локацию. Только одна строка — готовый вопрос.'
+            ].join(' '),
+            `Исходный вопрос: ${baseQuestion}`,
+            80,
+            0.85
+        );
+        if (isValidSpyGameQuestion(rephrased)) return rephrased;
+    } catch (error) {
+        console.warn('[openrouter] question rephrase failed:', error.message);
+    }
+    return baseQuestion;
+}
+
 async function completeAsHumanLike(kind, context = {}) {
     if (kind === 'question') {
-        return pickSpyGameFallbackQuestion(context.answerHistory);
+        return generateSpyGameQuestion(context);
     }
 
     if (!OPENROUTER_API_KEY) {
@@ -161,7 +215,8 @@ async function completeAsHumanLike(kind, context = {}) {
         return buildFallbackText(kind, context);
     }
 
-    const historyHint = buildHistoryHint(context.answerHistory);
+    const historyHint = (kind === 'answer') ? '' : buildHistoryHint(context.answerHistory);
+    const answerQuestion = (context.question || '').toString().trim();
     const roleHint = context.role === 'spy'
         ? 'Ты шпион и не знаешь локацию. Отвечай осторожно, правдоподобно и без конкретики, которая может выдать незнание.'
         : 'Ты мирный житель и знаешь локацию. Говори уверенно, но не называй её и не давай прямых подсказок.';
@@ -179,7 +234,8 @@ async function completeAsHumanLike(kind, context = {}) {
         kind === 'question' ? 'Вопрос ОБЯЗАН быть привязан к месту — используй слова "здесь", "сюда", "когда приходишь сюда", "в этом месте".' : '',
         kind === 'question' ? 'Запрещены общие вопросы про жизнь, знакомых, чувства, отношения, встречи вне локации, философию. Примеры плохих вопросов: "как реагируешь на знакомых", "что для тебя важно в жизни".' : '',
         kind === 'question' ? 'Примеры хороших вопросов: "Что ты делаешь сразу, как сюда приходишь?", "Что здесь чаще всего раздражает?", "Какая мелочь выдаёт новичка здесь?".' : '',
-        kind === 'answer' ? 'Дай короткий правдоподобный ответ на вопрос, 1-2 предложения.' : '',
+        kind === 'answer' && answerQuestion ? `Ответь ТОЛЬКО на этот конкретный вопрос: «${answerQuestion}». Не отвечай на другие вопросы из прошлого.` : '',
+        kind === 'answer' ? 'Дай короткий правдоподобный ответ, 1-2 предложения, строго по теме вопроса.' : '',
         kind === 'chat' ? 'Напиши короткую реплику в общий чат, без повторения чужих фраз.' : '',
         kind === 'guess' ? 'Выбери одну локацию из доступных вариантов и ответь только названием.' : '',
         historyHint
@@ -197,38 +253,14 @@ async function completeAsHumanLike(kind, context = {}) {
     });
 
     try {
-        const response = await fetch(OPENROUTER_URL, {
-            method: 'POST',
-            headers: {
-                Authorization: `Bearer ${OPENROUTER_API_KEY}`,
-                'Content-Type': 'application/json',
-                'HTTP-Referer': process.env.OPENROUTER_SITE_URL || 'http://localhost:3000',
-                'X-Title': process.env.OPENROUTER_APP_NAME || 'spy-game-online'
-            },
-            body: JSON.stringify({
-                model: OPENROUTER_MODEL,
-                temperature: 1.0,
-                max_tokens: kind === 'guess' ? 20 : 100,
-                messages: [
-                    { role: 'system', content: systemPrompt },
-                    { role: 'user', content: userPrompt }
-                ]
-            })
-        });
-
-        if (!response.ok) {
-            console.warn('[openrouter] API error:', response.status);
-            return buildFallbackText(kind, context);
-        }
-
-        const data = await response.json();
-        const text = data?.choices?.[0]?.message?.content?.trim();
-        if (!text) {
-            return buildFallbackText(kind, context);
-        }
-        const line = text.split('\n')[0].trim();
+        const line = await requestOpenRouterCompletion(
+            systemPrompt,
+            userPrompt,
+            kind === 'guess' ? 20 : 100,
+            kind === 'answer' ? 0.85 : 1.0
+        );
         if (kind === 'question' && !isValidSpyGameQuestion(line)) {
-            return buildFallbackText(kind, context);
+            return pickSpyGameFallbackQuestion(context.answerHistory);
         }
         return line;
     } catch (error) {

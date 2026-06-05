@@ -725,6 +725,10 @@ input:focus, textarea:focus {
     transform: translateY(-2px) scale(1.02);
 }
 
+textarea:focus {
+    transform: none;
+}
+
 .dark-theme input:focus, .dark-theme textarea:focus {
     box-shadow: 0 0 0 3px rgba(77, 184, 255, 0.5);
 }
@@ -1604,6 +1608,7 @@ button:disabled {
 .modal-body {
     margin: 20px 0;
     max-height: 60vh;
+    overflow-x: hidden;
     overflow-y: auto;
 }
 
@@ -1655,12 +1660,15 @@ button:disabled {
 }
 
 #questionInput,
-#answerInput {
-    resize: none;
-}
-
+#answerInput,
 .modal-content textarea {
     resize: none;
+    overflow-x: hidden;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    max-width: 100%;
 }
 
 .modal-icon {
