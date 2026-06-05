@@ -59,11 +59,17 @@ document.getElementById('registerForm').addEventListener('submit', async (e) => 
         return;
     }
 
+    const acceptPrivacy = document.getElementById('regAcceptPrivacy').checked;
+    if (!acceptPrivacy) {
+        showError('register', 'Необходимо дать согласие на обработку персональных данных');
+        return;
+    }
+
     try {
         const res = await fetch('/api/auth/register', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username, password }),
+            body: JSON.stringify({ username, password, acceptPrivacy: true }),
             credentials: 'same-origin'
         });
         const data = await res.json();

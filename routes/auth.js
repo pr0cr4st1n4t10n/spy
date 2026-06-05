@@ -7,10 +7,14 @@ const router = express.Router();
 // Регистрация
 router.post('/register', async (req, res) => {
     try {
-        const { username, password } = req.body;
+        const { username, password, acceptPrivacy } = req.body;
         
         if (!username || !password) {
             return res.status(400).json({ error: 'Логин и пароль обязательны' });
+        }
+
+        if (!acceptPrivacy) {
+            return res.status(400).json({ error: 'Необходимо дать согласие на обработку персональных данных' });
         }
 
         if (username.length < 3 || username.length > 20) {

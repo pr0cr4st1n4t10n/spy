@@ -101,6 +101,9 @@ app.get('/login', (req, res) => {
 app.get('/register', (req, res) => {
     res.sendFile(path.join(__dirname, 'auth.html'));
 });
+app.get(['/privacy', '/privacy/'], (req, res) => {
+    res.sendFile(path.join(__dirname, 'privacy.html'));
+});
 app.get('/profile/:id?', (req, res) => {
     res.sendFile(path.join(__dirname, 'profile.html'));
 });
